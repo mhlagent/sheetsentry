@@ -24,3 +24,7 @@ jobs:
         run: moon test --target native
       - name: Build
         run: moon build --target native
+      - name: CLI smoke test
+        run: |
+          moon run --target native cmd/main -- audit fixtures/bad_model.xlsx --format json --out findings.json
+          moon run --target native cmd/main -- audit fixtures/clean_model.xlsx --fail-on low
