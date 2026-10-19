@@ -1,5 +1,7 @@
 import {
-  "moonbitlang/mbtexcel" @mbtexcel,
+  "mhlagent/sheetsentry" @sheetsentry,
+  "moonbitlang/core/env",
+  "moonbitlang/core/string" @string,
   "moonbitlang/x/fs" @fs,
 }
 

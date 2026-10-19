@@ -78,7 +78,7 @@ def add_tax(wb, bad: bool):
         ws.write_formula("C3", "=D3*0.1", None, 0)
         ws.write_formula("D3", "=C3+1", None, 1)
     else:
-        ws.write_formula("C3", "=Inputs!B2*0.1", None, 100)
+        ws.write_formula("C3", "=Inputs!B2*Inputs!B3", None, 30)
         ws.write_formula("D3", "=C3+1", None, 101)
 
 
