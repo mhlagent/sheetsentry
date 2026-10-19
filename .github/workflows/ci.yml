@@ -16,6 +16,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Version
         run: moon version --all
+      - name: Update registry
+        run: moon update
       - name: Check
         run: moon check --target native
       - name: Test
