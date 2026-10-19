@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/mbtexcel/xlsx" @xlsx,
+}
+
+import {
+  "moonbitlang/x/fs" @fs,
+} for "test"
+
+supported_targets = "native"
