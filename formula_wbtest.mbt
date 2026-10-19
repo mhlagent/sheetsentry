@@ -37,3 +37,21 @@ test "normalize relative formulas" {
   let b = normalize_formula("=B3*$C$2", "Opex", 3, 3)
   assert_eq(a, b)
 }
+
+///|
+test "quoted sheet reference" {
+  let refs = extract_refs("='Sheet 1'!$A$1+1", "Summary")
+  assert_eq(refs.cells.length(), 1)
+  assert_eq(refs.cells[0].sheet, Some("Sheet 1"))
+  assert_eq(refs.cells[0].row, 1)
+  assert_eq(refs.cells[0].col, 1)
+  assert_eq(refs.cells[0].abs_row, true)
+  assert_eq(refs.cells[0].abs_col, true)
+}
+
+///|
+test "numeric literals skip sheet name digits" {
+  let nums = numeric_literals("=Sheet1!A1+2")
+  assert_eq(nums.length(), 1)
+  assert_eq(nums[0], "2")
+}

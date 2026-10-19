@@ -414,3 +414,30 @@ pub fn audit_bytes(bytes : Bytes, file : String) -> AuditReport raise @xlsx.Xlsx
   }
   { file, sheets, formula_cells, findings }
 }
+
+///|
+pub fn count_severity_public(report : AuditReport, severity : Severity) -> Int {
+  let mut count = 0
+  for finding in report.findings {
+    let same = match (finding.severity, severity) {
+      (High, High) => true
+      (Medium, Medium) => true
+      (Low, Low) => true
+      _ => false
+    }
+    if same {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+pub fn should_fail(report : AuditReport, threshold : String) -> Bool {
+  match threshold {
+    "high" => count_severity_public(report, High) > 0
+    "medium" => count_severity_public(report, High) + count_severity_public(report, Medium) > 0
+    "low" => report.findings.length() > 0
+    _ => false
+  }
+}

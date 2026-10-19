@@ -1,6 +1,7 @@
 import {
   "mhlagent/sheetsentry" @sheetsentry,
   "moonbitlang/core/env",
+  "moonbitlang/x/sys" @sys,
   "moonbitlang/core/string" @string,
   "moonbitlang/x/fs" @fs,
 }

@@ -126,6 +126,7 @@ pub fn to_html(report : AuditReport) -> String {
 pub fn to_terminal(report : AuditReport) -> String {
   let mut out = "SheetSentry: \{report.file}\n"
   out = out + "  sheets: \{report.sheets.length()}  formula cells: \{report.formula_cells}  findings: \{report.findings.length()}\n"
+  out = out + "  high: \{count_severity(report, High)}  medium: \{count_severity(report, Medium)}  low: \{count_severity(report, Low)}\n"
   for finding in report.findings {
     out = out + "  [\{finding.severity.label()}] \{finding.rule_id}  \{finding.sheet}!\{finding.cell}  \{finding.message}\n"
   }

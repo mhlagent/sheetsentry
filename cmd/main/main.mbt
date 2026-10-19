@@ -12,6 +12,7 @@ fn run_audit(args : Array[String]) -> Unit {
   let path = args[2]
   let mut format = "terminal"
   let mut out : String? = None
+  let mut fail_on = ""
   let mut i = 3
   while i < args.length() {
     if args[i] == "--format" && i + 1 < args.length() {
@@ -19,6 +20,9 @@ fn run_audit(args : Array[String]) -> Unit {
       i = i + 2
     } else if args[i] == "--out" && i + 1 < args.length() {
       out = Some(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--fail-on" && i + 1 < args.length() {
+      fail_on = args[i + 1]
       i = i + 2
     } else {
       i = i + 1
@@ -36,6 +40,9 @@ fn run_audit(args : Array[String]) -> Unit {
     match out {
       Some(target) => @fs.write_string_to_file(target, text)
       None => println(text)
+    }
+    if fail_on != "" && @sheetsentry.should_fail(report, fail_on) {
+      @sys.exit(1)
     }
   } catch {
     err => println("sheetsentry: \{err}")

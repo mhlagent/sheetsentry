@@ -317,6 +317,17 @@ pub fn numeric_literals(formula : StringView) -> Array[String] {
       continue
     }
     let start = i
+    let mut preceded_by_identifier = false
+    if c != '-' && start > 0 {
+      let prev = formula.get_char(start - 1).unwrap_or('\u0000')
+      if prev.is_ascii_alphabetic() || prev.is_ascii_digit() || prev == '_' || prev == '.' {
+        preceded_by_identifier = true
+      }
+    }
+    if preceded_by_identifier {
+      i = i + 1
+      continue
+    }
     if c == '-' && i + 1 < formula.length() && formula.get_char(i + 1).unwrap_or('\u0000').is_ascii_digit() {
       i = i + 1
     }

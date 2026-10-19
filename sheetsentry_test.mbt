@@ -73,3 +73,22 @@ test "trace finds precedents" {
   assert_true(contains_node(nodes, "Opex!C2"))
   assert_true(contains_node(nodes, "Opex!C6"))
 }
+
+///|
+test "fail thresholds" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let bad = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  assert_true(@sheetsentry.should_fail(bad, "high"))
+  assert_true(@sheetsentry.should_fail(bad, "medium"))
+  assert_true(@sheetsentry.should_fail(bad, "low"))
+  let clean_bytes = @fs.read_file_to_bytes("fixtures/clean_model.xlsx")
+  let clean = @sheetsentry.audit_bytes(clean_bytes, "clean_model.xlsx")
+  assert_false(@sheetsentry.should_fail(clean, "low"))
+}
+
+///|
+test "trace finds dependents" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let nodes = @sheetsentry.trace_bytes(bytes, "Opex!C2", "dependents", 1)
+  assert_true(contains_node(nodes, "Summary!B3"))
+}
