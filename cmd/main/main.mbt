@@ -5,6 +5,8 @@ fn usage() -> Unit {
   println("Usage:")
   println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--fail-on high|medium|low]")
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
+  println("  sheetsentry graph <file.xlsx> [--format dot|mermaid] [--out <path>]")
+  println("  sheetsentry rules")
 }
 
 ///|
@@ -109,6 +111,40 @@ fn run_trace(args : Array[String]) -> Unit {
 }
 
 ///|
+fn run_graph(args : Array[String]) -> Unit {
+  let path = args[2]
+  let mut format = "dot"
+  let mut out : String? = None
+  let mut i = 3
+  while i < args.length() {
+    if args[i] == "--format" && i + 1 < args.length() {
+      format = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--out" && i + 1 < args.length() {
+      out = Some(args[i + 1])
+      i = i + 2
+    } else {
+      i = i + 1
+    }
+  }
+  try {
+    let bytes = @fs.read_file_to_bytes(path)
+    let graph = @sheetsentry.build_graph_bytes(bytes)
+    let text = if format == "mermaid" {
+      @sheetsentry.graph_to_mermaid(graph)
+    } else {
+      @sheetsentry.graph_to_dot(graph)
+    }
+    match out {
+      Some(target) => @fs.write_string_to_file(target, text)
+      None => println(text)
+    }
+  } catch {
+    err => println("sheetsentry: \{err}")
+  }
+}
+
+///|
 fn main {
   let args = @env.args()
   if args.length() < 2 {
@@ -128,6 +164,14 @@ fn main {
       } else {
         usage()
       }
+    "graph" =>
+      if args.length() >= 3 {
+        run_graph(args)
+      } else {
+        usage()
+      }
+    "rules" => println(@sheetsentry.rule_catalog())
+    "--version" => println("SheetSentry \{@sheetsentry.tool_version()}")
     _ => usage()
   }
 }

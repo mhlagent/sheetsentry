@@ -6,6 +6,11 @@ pub(all) enum Severity {
 }
 
 ///|
+pub fn tool_version() -> String {
+  "0.2.0"
+}
+
+///|
 pub fn Severity::label(self : Severity) -> String {
   match self {
     High => "high"
@@ -121,28 +126,49 @@ fn has_constant_literal(formula : String) -> String? {
 }
 
 ///|
-fn direct_cycle(graph : DependencyGraph, start : String) -> Array[String]? {
-  let path : Array[String] = [start]
-  let mut current = start
-  let mut steps = 0
-  while steps < 64 {
-    let nexts = graph.edges.get(current)
-    match nexts {
-      Some(list) =>
-        if list.length() == 0 {
-          return None
-        } else {
-          current = list[0]
-        }
-      None => return None
+fn dfs_cycle_to(
+  start : String,
+  node : String,
+  graph : DependencyGraph,
+  colors : Map[String, Int],
+  stack : Array[String],
+  found : Array[Array[String]],
+) -> Bool {
+  colors.set(node, 1)
+  stack.push(node)
+  let neighbors = graph.edges.get_or_default(node, [])
+  for next in neighbors {
+    if next == start {
+      let cycle : Array[String] = []
+      for item in stack {
+        cycle.push(item)
+      }
+      cycle.push(start)
+      found.push(cycle)
+      return true
     }
-    if current == start {
-      return Some(path)
+    if colors.get_or_default(next, 0) == 0 {
+      if dfs_cycle_to(start, next, graph, colors, stack, found) {
+        return true
+      }
     }
-    path.push(current)
-    steps = steps + 1
   }
-  None
+  ignore(stack.pop())
+  colors.set(node, 2)
+  false
+}
+
+///|
+fn find_cycle_from(graph : DependencyGraph, start : String) -> Array[String]? {
+  let colors : Map[String, Int] = Map([])
+  let stack : Array[String] = []
+  let found : Array[Array[String]] = []
+  ignore(dfs_cycle_to(start, start, graph, colors, stack, found))
+  if found.length() > 0 {
+    Some(found[0])
+  } else {
+    None
+  }
 }
 
 ///|
@@ -154,6 +180,25 @@ fn cycle_related(path : Array[String], start : String) -> Array[String] {
     }
   }
   result
+}
+
+///|
+fn external_link(formula : StringView) -> String? {
+  let mut i = 0
+  while i < formula.length() {
+    let c = formula.get_char(i).unwrap_or('\u0000')
+    if c == '[' {
+      let mut j = i + 1
+      while j < formula.length() && formula.get_char(j).unwrap_or('\u0000') != ']' {
+        j = j + 1
+      }
+      if j < formula.length() {
+        return Some(formula[i + 1:j].to_owned())
+      }
+    }
+    i = i + 1
+  }
+  None
 }
 
 ///|
@@ -244,6 +289,22 @@ fn collect_sheet_cells(
                 ),
               )
             }
+          }
+          match external_link(text) {
+            Some(workbook) => {
+              findings.push(
+                make_finding(
+                  "SS008",
+                  Medium,
+                  sheet_name,
+                  cell,
+                  Some(text),
+                  "Formula references external workbook \{workbook}.",
+                  [],
+                ),
+              )
+            }
+            None => ()
           }
           if hidden_sheet || hidden_row {
             findings.push(
@@ -392,7 +453,7 @@ pub fn audit_bytes(bytes : Bytes, file : String) -> AuditReport raise @xlsx.Xlsx
     detect_formula_inconsistency(sheet, list, findings)
   }
   for key, _ in graph.edges {
-    match direct_cycle(graph, key) {
+    match find_cycle_from(graph, key) {
       Some(path) => {
         let cell = match key.split("!").collect() {
           [_, c] => c.to_owned()

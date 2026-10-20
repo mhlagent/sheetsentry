@@ -4,7 +4,7 @@ test "summarize bad model" {
   let summary = @sheetsentry.summarize_bytes(bytes)
   assert_eq(summary.sheets.length(), 5)
   assert_eq(summary.sheets[0], "Inputs")
-  assert_eq(summary.formula_cells, 14)
+  assert_eq(summary.formula_cells, 15)
 }
 
 ///|
@@ -31,6 +31,7 @@ test "audit bad model finds core rules" {
   assert_true(has_rule(report, "SS004"))
   assert_true(has_rule(report, "SS005"))
   assert_true(has_rule(report, "SS006"))
+  assert_true(has_rule(report, "SS008"))
 }
 
 ///|
@@ -102,4 +103,21 @@ test "baseline suppresses known findings" {
   assert_eq(filtered.findings.length(), 0)
   assert_eq(filtered.suppressed.length(), report.findings.length())
   assert_false(@sheetsentry.should_fail(filtered, "low"))
+}
+
+///|
+test "graph export formats" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let graph = @sheetsentry.build_graph_bytes(bytes)
+  let dot = @sheetsentry.graph_to_dot(graph)
+  let mermaid = @sheetsentry.graph_to_mermaid(graph)
+  assert_true(dot.has_prefix("digraph sheetsentry"))
+  assert_true(mermaid.has_prefix("graph LR"))
+}
+
+///|
+test "rule catalog lists all rules" {
+  let catalog = @sheetsentry.rule_catalog()
+  assert_true(catalog.contains("SS001"))
+  assert_true(catalog.contains("SS008"))
 }

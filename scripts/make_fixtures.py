@@ -26,7 +26,8 @@ def add_opex(wb, bad: bool):
     ws.write("A1", "Item")
     ws.write("B1", "Amount")
     ws.write("C1", "Inflated")
-    ws.write_number("C2", 1.1)  # C1 is a header; C2 is the multiplier
+    ws.write("D1", "Multiplier")
+    ws.write_number("D2", 1.1)
     rows = [("Rent", 100), ("Payroll", 120), ("Cloud", 130), ("Travel", 140), ("Other", 150)]
     start = 2
     for i, (label, amount) in enumerate(rows):
@@ -35,9 +36,9 @@ def add_opex(wb, bad: bool):
         ws.write_number(r - 1, 1, amount)
         if bad and i == 4:
             # Deliberate off-by-one: should be B6, but points to the empty B7.
-            ws.write_formula(r - 1, 2, "=B7*$C$2", None, 0)
+            ws.write_formula(r - 1, 2, "=B7*$D$2", None, 0)
         else:
-            ws.write_formula(r - 1, 2, f"=B{r}*$C$2", None, amount * 1.1)
+            ws.write_formula(r - 1, 2, f"=B{r}*$D$2", None, amount * 1.1)
     if bad:
         ws.set_row(5, None, None, {"hidden": True})  # row 6 is hidden
 
@@ -66,6 +67,8 @@ def add_summary(wb, bad: bool):
     if bad:
         ws.write("A6", "Broken lookup")
         ws.write_formula("B6", "=NA()", None, "#N/A")
+        ws.write("A7", "External link")
+        ws.write_formula("B7", "'[Book2.xlsx]Sheet1'!A1", None, 0)
 
 
 def add_tax(wb, bad: bool):

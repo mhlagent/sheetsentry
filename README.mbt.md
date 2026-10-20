@@ -20,15 +20,16 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-MVP, implemented in MoonBit. The current release supports:
+`0.2.0` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - cross-sheet formula reference extraction
 - dependency graph construction
-- six audit rules plus a dynamic-reference warning
+- eight audit rules, baseline suppression, and graph export
 - terminal, JSON, SARIF, and self-contained HTML reports
 - `trace` for precedents and dependents
-- CI-friendly `--fail-on` exit codes
+- DOT / Mermaid dependency graph export
+- CI-friendly `--fail-on` exit codes and baselines
 
 ## Quick start
 
@@ -45,8 +46,8 @@ Expected output:
 
 ```text
 SheetSentry: fixtures/bad_model.xlsx
-  sheets: 5  formula cells: 14  findings: 11
-  high: 4  medium: 6  low: 1
+  sheets: 5  formula cells: 15  findings: 12
+  high: 4  medium: 7  low: 1
   [medium] SS005  Opex!C6  Formula lives on a hidden row.
   [medium] SS003  Summary!B2  Formula embeds numeric constant 1.05; prefer a named input cell.
   [high] SS001  Summary!B4  Cell contains error value #REF!.
@@ -95,6 +96,7 @@ moon run --target native cmd/main -- audit model.xlsx --baseline baseline.json -
 | SS005 | Medium | Hidden formula | Formulas on hidden sheets or hidden rows are easy to miss during review. |
 | SS006 | High | Circular reference | A dependency cycle makes calculation order undefined or unstable. |
 | SS007 | Low | Dynamic reference | `INDIRECT` / `OFFSET` prevent complete static dependency tracing. |
+| SS008 | Medium | External workbook | Formula references another workbook, making the model non-self-contained. |
 
 The rule catalog is intentionally small and deterministic. Every finding has a stable rule ID, severity, sheet, cell, message, optional formula, and related cells.
 
@@ -170,6 +172,8 @@ Tests cover:
 - a clean workbook with zero findings;
 - report rendering;
 - baseline round-trip and suppression;
+- graph export;
+- rule catalog;
 - precedents and dependents tracing;
 - fail thresholds.
 
