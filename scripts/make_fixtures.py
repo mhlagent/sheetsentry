@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Generate deterministic XLSX fixtures for SheetSentry tests."""
 from pathlib import Path
+import shutil
+import tempfile
+import zipfile
 import xlsxwriter
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,6 +72,10 @@ def add_summary(wb, bad: bool):
         ws.write_formula("B6", "=NA()", None, "#N/A")
         ws.write("A7", "External link")
         ws.write_formula("B7", "'[Book2.xlsx]Sheet1'!A1", None, 0)
+        ws.write("A8", "Whole column")
+        ws.write_formula("B8", "=SUM(Opex!C:C)", None, 660)
+        ws.write("A9", "Uncached formula")
+        ws.write_formula("B9", "=1+1", None, 0)
 
 
 def add_tax(wb, bad: bool):
@@ -94,6 +101,28 @@ def add_scratch(wb, bad: bool):
     ws.write_formula("A2", "=Inputs!B2", None, 1000)
 
 
+def strip_cached_value(path: Path, cell: str) -> None:
+    """Remove the cached <v> for one formula cell so it exercises the no-cache rule."""
+    with zipfile.ZipFile(path, "r") as src:
+        items = [(item, src.read(item.filename)) for item in src.infolist()]
+    patched = []
+    for item, data in items:
+        if item.filename == "xl/worksheets/sheet3.xml":
+            text = data.decode("utf-8")
+            start = text.find(f'<c r="{cell}"')
+            if start != -1:
+                end = text.find("</c>", start)
+                block = text[start:end]
+                f_end = block.find("</f>") + len("</f>")
+                block = block[:f_end] + block[block.find("</v>") + len("</v>"):] if "</v>" in block else block
+                text = text[:start] + block + text[end:]
+            data = text.encode("utf-8")
+        patched.append((item, data))
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item, data in patched:
+            dst.writestr(item, data)
+
+
 def build(path: Path, bad: bool):
     wb = xlsxwriter.Workbook(path)
     wb.set_properties({"title": "SheetSentry bad model" if bad else "SheetSentry clean model"})
@@ -103,6 +132,8 @@ def build(path: Path, bad: bool):
     add_tax(wb, bad)
     add_scratch(wb, bad)
     wb.close()
+    if bad:
+        strip_cached_value(path, "B9")
     print(path)
 
 

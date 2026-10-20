@@ -20,15 +20,16 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.2.0` MVP, implemented in MoonBit. The current release supports:
+`0.3.0` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - cross-sheet formula reference extraction
 - dependency graph construction
-- eight audit rules, baseline suppression, and graph export
+- ten audit rules, baseline suppression, config files, and graph export
 - terminal, JSON, SARIF, and self-contained HTML reports
 - `trace` for precedents and dependents
 - DOT / Mermaid dependency graph export
+- JSON config files for rule filtering and ignored cells
 - CI-friendly `--fail-on` exit codes and baselines
 
 ## Quick start
@@ -46,8 +47,8 @@ Expected output:
 
 ```text
 SheetSentry: fixtures/bad_model.xlsx
-  sheets: 5  formula cells: 15  findings: 12
-  high: 4  medium: 7  low: 1
+  sheets: 5  formula cells: 17  findings: 14
+  high: 4  medium: 7  low: 3
   [medium] SS005  Opex!C6  Formula lives on a hidden row.
   [medium] SS003  Summary!B2  Formula embeds numeric constant 1.05; prefer a named input cell.
   [high] SS001  Summary!B4  Cell contains error value #REF!.
@@ -89,6 +90,9 @@ moon run --target native cmd/main -- audit model.xlsx --min-severity high
 
 # Disable noisy rules for a specific run
 moon run --target native cmd/main -- audit model.xlsx --disable SS003,SS004
+
+# Load a project config
+moon run --target native cmd/main -- audit model.xlsx --config sheetsentry.json
 ```
 
 ## Rules
@@ -103,8 +107,25 @@ moon run --target native cmd/main -- audit model.xlsx --disable SS003,SS004
 | SS006 | High | Circular reference | A dependency cycle makes calculation order undefined or unstable. |
 | SS007 | Low | Dynamic reference | `INDIRECT` / `OFFSET` prevent complete static dependency tracing. |
 | SS008 | Medium | External workbook | Formula references another workbook, making the model non-self-contained. |
+| SS009 | Low | Whole-axis reference | `A:A` / `1:1` can be expensive and ambiguous. |
+| SS010 | Low | Missing cached value | Some readers may show a blank until the workbook is recalculated. |
 
 The rule catalog is intentionally small and deterministic. Every finding has a stable rule ID, severity, sheet, cell, message, optional formula, and related cells.
+
+## Config
+
+```json
+{
+  "min_severity": "medium",
+  "disabled_rules": ["SS004"],
+  "ignore_cells": ["Summary!B2"],
+  "fail_on": "high"
+}
+```
+
+```bash
+moon run --target native cmd/main -- audit model.xlsx --config sheetsentry.json
+```
 
 ## Baseline
 
@@ -174,14 +195,14 @@ Tests cover:
 - reference extraction including quoted sheet names and absolute references;
 - function-name and numeric-literal extraction;
 - formula normalization across rows;
-- all six audit rules on `fixtures/bad_model.xlsx`;
+- all ten audit rules on `fixtures/bad_model.xlsx`;
 - a clean workbook with zero findings;
 - report rendering;
 - baseline round-trip and suppression;
 - severity and disabled-rule filters;
 - graph export;
 - rule catalog;
-- 19 tests in total.
+- 46 tests in total.
 - precedents and dependents tracing;
 - fail thresholds.
 

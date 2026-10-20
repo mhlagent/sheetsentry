@@ -7,7 +7,7 @@ pub(all) enum Severity {
 
 ///|
 pub fn tool_version() -> String {
-  "0.2.0"
+  "0.3.0"
 }
 
 ///|
@@ -183,6 +183,59 @@ fn cycle_related(path : Array[String], start : String) -> Array[String] {
 }
 
 ///|
+fn has_whole_axis_ref(formula : StringView) -> Bool {
+  let mut i = 0
+  while i < formula.length() {
+    let c = formula.get_char(i).unwrap_or('\u0000')
+    if c == '$' || c.is_ascii_alphabetic() {
+      let start = i
+      if c == '$' {
+        i = i + 1
+      }
+      while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_alphabetic() {
+        i = i + 1
+      }
+      if i > start && i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == ':' {
+        let mut j = i + 1
+        if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '$' {
+          j = j + 1
+        }
+        let letter_start = j
+        while j < formula.length() && formula.get_char(j).unwrap_or('\u0000').is_ascii_alphabetic() {
+          j = j + 1
+        }
+        if j > letter_start && (j == formula.length() || !formula.get_char(j).unwrap_or('\u0000').is_ascii_digit()) {
+          return true
+        }
+      }
+    } else if c == '$' || c.is_ascii_digit() {
+      let start = i
+      if c == '$' {
+        i = i + 1
+      }
+      while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
+        i = i + 1
+      }
+      if i > start && i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == ':' {
+        let mut j = i + 1
+        if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '$' {
+          j = j + 1
+        }
+        let digit_start = j
+        while j < formula.length() && formula.get_char(j).unwrap_or('\u0000').is_ascii_digit() {
+          j = j + 1
+        }
+        if j > digit_start {
+          return true
+        }
+      }
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
 fn external_link(formula : StringView) -> String? {
   let mut i = 0
   while i < formula.length() {
@@ -305,6 +358,36 @@ fn collect_sheet_cells(
               )
             }
             None => ()
+          }
+          if has_whole_axis_ref(text) {
+            findings.push(
+              make_finding(
+                "SS009",
+                Low,
+                sheet_name,
+                cell,
+                Some(text),
+                "Formula uses a whole-column or whole-row reference; this can be expensive and ambiguous.",
+                [],
+              ),
+            )
+          }
+          let cached = match sheet.get_cell_formula_info_rc(row, col) {
+            Some(info) => info.cached_value_present
+            None => false
+          }
+          if !cached {
+            findings.push(
+              make_finding(
+                "SS010",
+                Low,
+                sheet_name,
+                cell,
+                Some(text),
+                "Formula has no cached result; some readers may show a blank until recalculation.",
+                [],
+              ),
+            )
           }
           if hidden_sheet || hidden_row {
             findings.push(

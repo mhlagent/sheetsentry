@@ -4,7 +4,7 @@ test "summarize bad model" {
   let summary = @sheetsentry.summarize_bytes(bytes)
   assert_eq(summary.sheets.length(), 5)
   assert_eq(summary.sheets[0], "Inputs")
-  assert_eq(summary.formula_cells, 15)
+  assert_eq(summary.formula_cells, 17)
 }
 
 ///|
@@ -32,6 +32,8 @@ test "audit bad model finds core rules" {
   assert_true(has_rule(report, "SS005"))
   assert_true(has_rule(report, "SS006"))
   assert_true(has_rule(report, "SS008"))
+  assert_true(has_rule(report, "SS009"))
+  assert_true(has_rule(report, "SS010"))
 }
 
 ///|
@@ -134,4 +136,115 @@ test "filter by severity and disabled rule" {
   for finding in no_ss003.findings {
     assert_true(finding.rule_id != "SS003")
   }
+}
+
+///|
+test "default config" {
+  let config = @sheetsentry.default_config()
+  assert_eq(config.min_severity, "low")
+  assert_eq(config.disabled_rules.length(), 0)
+  assert_eq(config.ignore_cells.length(), 0)
+  assert_eq(config.fail_on, "")
+}
+
+///|
+test "parse full config" {
+  let config = @sheetsentry.parse_config("{\"min_severity\":\"high\",\"disabled_rules\":[\"SS003\",\"SS004\"],\"ignore_cells\":[\"Summary!B2\"],\"fail_on\":\"high\"}")
+  assert_eq(config.min_severity, "high")
+  assert_eq(config.disabled_rules.length(), 2)
+  assert_eq(config.ignore_cells[0], "Summary!B2")
+  assert_eq(config.fail_on, "high")
+}
+
+///|
+test "parse partial config" {
+  let config = @sheetsentry.parse_config("{\"disabled_rules\":[\"SS004\"]}")
+  assert_eq(config.min_severity, "low")
+  assert_eq(config.disabled_rules[0], "SS004")
+  assert_eq(config.fail_on, "")
+}
+
+///|
+test "parse empty object config" {
+  let config = @sheetsentry.parse_config("{}")
+  assert_eq(config.min_severity, "low")
+  assert_eq(config.disabled_rules.length(), 0)
+}
+
+///|
+test "apply config filters and ignores" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let config = @sheetsentry.parse_config("{\"min_severity\":\"high\",\"disabled_rules\":[\"SS006\"],\"ignore_cells\":[\"Summary!B4\"]}")
+  let filtered = @sheetsentry.apply_config(report, config)
+  for finding in filtered.findings {
+    assert_eq(finding.severity.label(), "high")
+    assert_true(finding.rule_id != "SS006")
+    assert_true(finding.cell != "B4")
+  }
+  assert_true(filtered.suppressed.length() > 0)
+}
+
+///|
+test "report terminal includes suppressed" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let text = @sheetsentry.to_terminal(report)
+  assert_true(text.contains("suppressed:"))
+  assert_true(text.contains("SS008"))
+}
+
+///|
+test "report json includes suppressed field" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let json = @sheetsentry.to_json(report)
+  assert_true(json.contains("\"suppressed\":[]"))
+  assert_true(json.contains("\"rule_id\":\"SS009\""))
+}
+
+///|
+test "report html has filters" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let html = @sheetsentry.to_html(report)
+  assert_true(html.contains("data-severity="))
+  assert_true(html.contains("filterRows"))
+}
+
+///|
+test "sarif includes all rules" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let sarif = @sheetsentry.to_sarif(report)
+  assert_true(sarif.contains("\"SS010\""))
+  assert_true(sarif.contains("\"version\":\"2.1.0\""))
+}
+
+///|
+test "severity rank ordering" {
+  assert_true(@sheetsentry.severity_rank(@sheetsentry.High) < @sheetsentry.severity_rank(@sheetsentry.Medium))
+  assert_true(@sheetsentry.severity_rank(@sheetsentry.Medium) < @sheetsentry.severity_rank(@sheetsentry.Low))
+}
+
+///|
+test "finding fingerprint has stable format" {
+  let finding = @sheetsentry.Finding::{
+    rule_id: "SS001",
+    severity: @sheetsentry.High,
+    sheet: "Summary",
+    cell: "B4",
+    formula: None,
+    message: "x",
+    related: [],
+  }
+  assert_eq(@sheetsentry.finding_fingerprint(finding), "SS001|Summary|B4")
+}
+
+///|
+test "trace depth zero returns start" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let nodes = @sheetsentry.trace_bytes(bytes, "Summary!B3", "precedents", 0)
+  assert_eq(nodes.length(), 1)
+  assert_eq(nodes[0], "Summary!B3")
 }

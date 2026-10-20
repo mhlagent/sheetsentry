@@ -51,6 +51,8 @@ SheetSentry 把这些检查变成可脚本化、可重复、可进入 CI 的工�
 | SS006 | High | 循环引用 |
 | SS007 | Low | 动态引用导致静态依赖不完整 |
 | SS008 | Medium | 引用外部工作簿 |
+| SS009 | Low | 整列/整行引用（如 `A:A`、`1:1`） |
+| SS010 | Low | 公式没有缓存结果 |
 
 ### 3. 依赖图与追踪
 
@@ -69,7 +71,8 @@ SheetSentry 把这些检查变成可脚本化、可重复、可进入 CI 的工�
 - `--fail-on high|medium|low`：达到阈值时返回非零退出码；
 - `--baseline` / `--write-baseline`：只阻断新增问题；
 - `--min-severity`：按最低严重级别过滤；
-- `--disable SS003,SS004`：临时关闭指定规则。
+- `--disable SS003,SS004`：临时关闭指定规则；
+- `--config sheetsentry.json`：从 JSON 配置文件读取最低严重级别、禁用规则、忽略单元格和 fail-on。
 
 ### 5. CLI
 
@@ -86,11 +89,11 @@ sheetsentry rules
 
 ## 预期验收产物
 
-- Mooncakes 包：`mhlagent/sheetsentry`，当前已发布 `0.2.0`；
+- Mooncakes 包：`mhlagent/sheetsentry`，当前已发布 `0.3.0`；
 - GitHub 仓库：https://github.com/mhlagent/sheetsentry；
 - 可直接运行的 MoonBit CLI：`cmd/main`；
 - 可复用的 MoonBit 库 API：`audit_bytes`、`build_graph_bytes`、`trace_bytes`、`filter_report`、`apply_baseline`、`graph_to_dot`、`graph_to_mermaid` 等；
-- 19 个 MoonBit 测试；
+- 46 个 MoonBit 测试；
 - 可复现的 `bad_model.xlsx` / `clean_model.xlsx` 测试 fixtures；
 - GitHub Actions CI：`moon update`、`moon check`、`moon test`、`moon build`、CLI smoke test；
 - README、规则目录、架构说明、限制说明和比赛提交说明；
@@ -150,15 +153,15 @@ flowchart LR
 ## 验收指标
 
 - `moon check --target native` 通过；
-- `moon test --target native`：19 个测试全部通过；
+- `moon test --target native`：46 个测试全部通过；
 - `moon build --target native` 通过；
-- `bad_model.xlsx` 能发现 12 个问题，覆盖 SS001–SS008；
+- `bad_model.xlsx` 能发现 14 个问题，覆盖 SS001–SS010；
 - `clean_model.xlsx` 输出 0 个问题；
 - `--fail-on high` 对有高风险问题的模型返回非零；
 - 使用 baseline 后，已知问题被抑制，`--fail-on low` 返回 0；
 - `graph` 能输出 DOT 和 Mermaid；
 - GitHub Actions 最新一次为绿色；
-- `moon publish` 成功发布 `mhlagent/sheetsentry@0.2.0`。
+- `moon publish` 成功发布 `mhlagent/sheetsentry@0.3.0`。
 
 ## 移植或参考说明
 

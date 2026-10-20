@@ -32,11 +32,14 @@ Current rules:
 | SS006 | High | Circular reference |
 | SS007 | Low | Dynamic reference prevents complete static tracing |
 | SS008 | Medium | External workbook references |
+| SS009 | Low | Whole-column/whole-row references |
+| SS010 | Low | Formula without cached result |
 
 Outputs:
 
 - baseline suppression for existing findings;
 - severity and disabled-rule filters;
+- JSON config files for rule filtering and ignored cells;
 - terminal summary;
 - JSON for automation;
 - SARIF 2.1.0 for code scanning;
@@ -75,7 +78,7 @@ moon run --target native cmd/main -- audit fixtures/bad_model.xlsx --format html
 moon run --target native cmd/main -- audit fixtures/clean_model.xlsx --fail-on low
 ```
 
-The bad fixture produces 12 findings across the audit rules. The clean fixture produces zero findings.
+The bad fixture produces 14 findings across the audit rules. The clean fixture produces zero findings.
 
 ## Engineering quality
 
