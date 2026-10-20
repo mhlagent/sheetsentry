@@ -3,7 +3,7 @@ fn usage() -> Unit {
   println("SheetSentry - Excel model static analysis")
   println("")
   println("Usage:")
-  println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>]")
+  println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--fail-on high|medium|low]")
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
 }
 
@@ -13,6 +13,8 @@ fn run_audit(args : Array[String]) -> Unit {
   let mut format = "terminal"
   let mut out : String? = None
   let mut fail_on = ""
+  let mut baseline_path : String? = None
+  let mut write_baseline_path : String? = None
   let mut i = 3
   while i < args.length() {
     if args[i] == "--format" && i + 1 < args.length() {
@@ -24,13 +26,31 @@ fn run_audit(args : Array[String]) -> Unit {
     } else if args[i] == "--fail-on" && i + 1 < args.length() {
       fail_on = args[i + 1]
       i = i + 2
+    } else if args[i] == "--baseline" && i + 1 < args.length() {
+      baseline_path = Some(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--write-baseline" && i + 1 < args.length() {
+      write_baseline_path = Some(args[i + 1])
+      i = i + 2
     } else {
       i = i + 1
     }
   }
   try {
     let bytes = @fs.read_file_to_bytes(path)
-    let report = @sheetsentry.audit_bytes(bytes, path)
+    let mut report = @sheetsentry.audit_bytes(bytes, path)
+    match baseline_path {
+      Some(baseline) => {
+        let baseline_text = @fs.read_file_to_string(baseline)
+        let fingerprints = @sheetsentry.parse_baseline(baseline_text)
+        report = @sheetsentry.apply_baseline(report, fingerprints)
+      }
+      None => ()
+    }
+    match write_baseline_path {
+      Some(target) => @fs.write_string_to_file(target, @sheetsentry.baseline_json(report))
+      None => ()
+    }
     let text = match format {
       "json" => @sheetsentry.to_json(report)
       "sarif" => @sheetsentry.to_sarif(report)

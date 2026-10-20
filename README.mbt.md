@@ -76,6 +76,12 @@ moon run --target native cmd/main -- trace model.xlsx --cell "Inputs!B2" --direc
 
 # Fail CI if any high-severity finding exists
 moon run --target native cmd/main -- audit model.xlsx --fail-on high
+
+# Create a baseline for existing findings
+moon run --target native cmd/main -- audit model.xlsx --write-baseline baseline.json
+
+# Fail only on new findings
+moon run --target native cmd/main -- audit model.xlsx --baseline baseline.json --fail-on low
 ```
 
 ## Rules
@@ -91,6 +97,17 @@ moon run --target native cmd/main -- audit model.xlsx --fail-on high
 | SS007 | Low | Dynamic reference | `INDIRECT` / `OFFSET` prevent complete static dependency tracing. |
 
 The rule catalog is intentionally small and deterministic. Every finding has a stable rule ID, severity, sheet, cell, message, optional formula, and related cells.
+
+## Baseline
+
+Large models often have known findings. Generate a baseline once, commit it, and let CI fail only on new findings:
+
+```bash
+moon run --target native cmd/main -- audit model.xlsx --write-baseline sheetsentry.baseline.json
+moon run --target native cmd/main -- audit model.xlsx --baseline sheetsentry.baseline.json --fail-on low
+```
+
+A fingerprint is `rule|sheet|cell`, so moving a finding to another cell makes it new again.
 
 ## Reports
 
@@ -152,6 +169,7 @@ Tests cover:
 - all six audit rules on `fixtures/bad_model.xlsx`;
 - a clean workbook with zero findings;
 - report rendering;
+- baseline round-trip and suppression;
 - precedents and dependents tracing;
 - fail thresholds.
 

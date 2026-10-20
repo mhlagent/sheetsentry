@@ -92,3 +92,14 @@ test "trace finds dependents" {
   let nodes = @sheetsentry.trace_bytes(bytes, "Opex!C2", "dependents", 1)
   assert_true(contains_node(nodes, "Summary!B3"))
 }
+
+///|
+test "baseline suppresses known findings" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let baseline = @sheetsentry.parse_baseline(@sheetsentry.baseline_json(report))
+  let filtered = @sheetsentry.apply_baseline(report, baseline)
+  assert_eq(filtered.findings.length(), 0)
+  assert_eq(filtered.suppressed.length(), report.findings.length())
+  assert_false(@sheetsentry.should_fail(filtered, "low"))
+}

@@ -1,5 +1,6 @@
 import {
   "moonbitlang/mbtexcel/xlsx" @xlsx,
+  "moonbitlang/core/json" @json,
 }
 
 import {

@@ -31,6 +31,7 @@ pub(all) struct AuditReport {
   sheets : Array[String]
   formula_cells : Int
   findings : Array[Finding]
+  suppressed : Array[Finding]
 }
 
 ///|
@@ -412,7 +413,18 @@ pub fn audit_bytes(bytes : Bytes, file : String) -> AuditReport raise @xlsx.Xlsx
       None => ()
     }
   }
-  { file, sheets, formula_cells, findings }
+  findings.sort_by(fn(a, b) {
+    let ar = severity_rank(a.severity)
+    let br = severity_rank(b.severity)
+    if ar != br {
+      ar - br
+    } else if a.sheet != b.sheet {
+      a.sheet.compare(b.sheet)
+    } else {
+      a.cell.compare(b.cell)
+    }
+  })
+  { file, sheets, formula_cells, findings, suppressed: [] }
 }
 
 ///|
@@ -440,4 +452,58 @@ pub fn should_fail(report : AuditReport, threshold : String) -> Bool {
     "low" => report.findings.length() > 0
     _ => false
   }
+}
+
+
+///|
+pub fn severity_rank(severity : Severity) -> Int {
+  match severity {
+    High => 0
+    Medium => 1
+    Low => 2
+  }
+}
+
+///|
+pub fn finding_fingerprint(finding : Finding) -> String {
+  "\{finding.rule_id}|\{finding.sheet}|\{finding.cell}"
+}
+
+///|
+pub fn apply_baseline(report : AuditReport, fingerprints : Array[String]) -> AuditReport {
+  let active : Array[Finding] = []
+  let suppressed : Array[Finding] = []
+  for finding in report.findings {
+    let fingerprint = finding_fingerprint(finding)
+    let mut matched = false
+    for known in fingerprints {
+      if known == fingerprint {
+        matched = true
+      }
+    }
+    if matched {
+      suppressed.push(finding)
+    } else {
+      active.push(finding)
+    }
+  }
+  {
+    file: report.file,
+    sheets: report.sheets,
+    formula_cells: report.formula_cells,
+    findings: active,
+    suppressed,
+  }
+}
+
+///|
+pub fn all_fingerprints(report : AuditReport) -> Array[String] {
+  let result : Array[String] = []
+  for finding in report.findings {
+    result.push(finding_fingerprint(finding))
+  }
+  for finding in report.suppressed {
+    result.push(finding_fingerprint(finding))
+  }
+  result
 }

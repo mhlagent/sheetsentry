@@ -42,8 +42,9 @@ fn finding_json(f : Finding) -> String {
 ///|
 pub fn to_json(report : AuditReport) -> String {
   let findings = "[" + report.findings.map(finding_json).join(",") + "]"
+  let suppressed = "[" + report.suppressed.map(finding_json).join(",") + "]"
   let sheets = "[" + report.sheets.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
-  "{\"tool\":\"sheetsentry\",\"version\":\"0.1.0\",\"file\":\"\{json_escape(report.file)}\",\"sheets\":\{sheets},\"formula_cells\":\{report.formula_cells},\"findings\":\{findings}}"
+  "{\"tool\":\"sheetsentry\",\"version\":\"0.1.0\",\"file\":\"\{json_escape(report.file)}\",\"sheets\":\{sheets},\"formula_cells\":\{report.formula_cells},\"findings\":\{findings},\"suppressed\":\{suppressed}}"
 }
 
 ///|
@@ -126,7 +127,7 @@ pub fn to_html(report : AuditReport) -> String {
 pub fn to_terminal(report : AuditReport) -> String {
   let mut out = "SheetSentry: \{report.file}\n"
   out = out + "  sheets: \{report.sheets.length()}  formula cells: \{report.formula_cells}  findings: \{report.findings.length()}\n"
-  out = out + "  high: \{count_severity(report, High)}  medium: \{count_severity(report, Medium)}  low: \{count_severity(report, Low)}\n"
+  out = out + "  high: \{count_severity(report, High)}  medium: \{count_severity(report, Medium)}  low: \{count_severity(report, Low)}  suppressed: \{report.suppressed.length()}\n"
   for finding in report.findings {
     out = out + "  [\{finding.severity.label()}] \{finding.rule_id}  \{finding.sheet}!\{finding.cell}  \{finding.message}\n"
   }
