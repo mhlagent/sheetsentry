@@ -36,6 +36,7 @@ Current rules:
 Outputs:
 
 - baseline suppression for existing findings;
+- severity and disabled-rule filters;
 - terminal summary;
 - JSON for automation;
 - SARIF 2.1.0 for code scanning;

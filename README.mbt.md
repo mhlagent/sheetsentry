@@ -83,6 +83,12 @@ moon run --target native cmd/main -- audit model.xlsx --write-baseline baseline.
 
 # Fail only on new findings
 moon run --target native cmd/main -- audit model.xlsx --baseline baseline.json --fail-on low
+
+# Show only high-severity findings
+moon run --target native cmd/main -- audit model.xlsx --min-severity high
+
+# Disable noisy rules for a specific run
+moon run --target native cmd/main -- audit model.xlsx --disable SS003,SS004
 ```
 
 ## Rules
@@ -172,8 +178,10 @@ Tests cover:
 - a clean workbook with zero findings;
 - report rendering;
 - baseline round-trip and suppression;
+- severity and disabled-rule filters;
 - graph export;
 - rule catalog;
+- 19 tests in total.
 - precedents and dependents tracing;
 - fail thresholds.
 

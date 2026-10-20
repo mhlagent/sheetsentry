@@ -3,7 +3,7 @@ fn usage() -> Unit {
   println("SheetSentry - Excel model static analysis")
   println("")
   println("Usage:")
-  println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--fail-on high|medium|low]")
+  println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--min-severity high|medium|low] [--disable SS003,SS004] [--fail-on high|medium|low]")
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
   println("  sheetsentry graph <file.xlsx> [--format dot|mermaid] [--out <path>]")
   println("  sheetsentry rules")
@@ -17,6 +17,8 @@ fn run_audit(args : Array[String]) -> Unit {
   let mut fail_on = ""
   let mut baseline_path : String? = None
   let mut write_baseline_path : String? = None
+  let mut min_severity = "low"
+  let mut disabled_rules : Array[String] = []
   let mut i = 3
   while i < args.length() {
     if args[i] == "--format" && i + 1 < args.length() {
@@ -34,6 +36,12 @@ fn run_audit(args : Array[String]) -> Unit {
     } else if args[i] == "--write-baseline" && i + 1 < args.length() {
       write_baseline_path = Some(args[i + 1])
       i = i + 2
+    } else if args[i] == "--min-severity" && i + 1 < args.length() {
+      min_severity = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--disable" && i + 1 < args.length() {
+      disabled_rules = args[i + 1].split(",").map(fn(x) { x.to_owned() }).collect()
+      i = i + 2
     } else {
       i = i + 1
     }
@@ -49,6 +57,7 @@ fn run_audit(args : Array[String]) -> Unit {
       }
       None => ()
     }
+    report = @sheetsentry.filter_report(report, min_severity, disabled_rules)
     match write_baseline_path {
       Some(target) => @fs.write_string_to_file(target, @sheetsentry.baseline_json(report))
       None => ()

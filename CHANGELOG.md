@@ -9,7 +9,8 @@
 - Add filterable HTML report.
 - Add `rules` command.
 - Sort findings by severity, sheet, and cell.
-- Expand tests to 18.
+- Add `--min-severity` and `--disable` filters.
+- Expand tests to 19.
 
 ## 0.1.0
 

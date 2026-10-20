@@ -121,3 +121,17 @@ test "rule catalog lists all rules" {
   assert_true(catalog.contains("SS001"))
   assert_true(catalog.contains("SS008"))
 }
+
+///|
+test "filter by severity and disabled rule" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
+  let high = @sheetsentry.filter_report(report, "high", [])
+  for finding in high.findings {
+    assert_eq(finding.severity.label(), "high")
+  }
+  let no_ss003 = @sheetsentry.filter_report(report, "low", ["SS003"])
+  for finding in no_ss003.findings {
+    assert_true(finding.rule_id != "SS003")
+  }
+}

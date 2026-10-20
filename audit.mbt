@@ -568,3 +568,51 @@ pub fn all_fingerprints(report : AuditReport) -> Array[String] {
   }
   result
 }
+
+///|
+fn severity_allowed(severity : Severity, minimum : String) -> Bool {
+  match minimum {
+    "high" =>
+      match severity {
+        High => true
+        _ => false
+      }
+    "medium" =>
+      match severity {
+        High => true
+        Medium => true
+        _ => false
+      }
+    _ => true
+  }
+}
+
+///|
+pub fn filter_report(
+  report : AuditReport,
+  min_severity : String,
+  disabled_rules : Array[String],
+) -> AuditReport {
+  let active : Array[Finding] = []
+  let suppressed = report.suppressed
+  for finding in report.findings {
+    let mut disabled = false
+    for rule_id in disabled_rules {
+      if finding.rule_id == rule_id {
+        disabled = true
+      }
+    }
+    if severity_allowed(finding.severity, min_severity) && !disabled {
+      active.push(finding)
+    } else {
+      suppressed.push(finding)
+    }
+  }
+  {
+    file: report.file,
+    sheets: report.sheets,
+    formula_cells: report.formula_cells,
+    findings: active,
+    suppressed,
+  }
+}
