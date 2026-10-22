@@ -235,7 +235,15 @@ fn run_verify_slice(args : Array[String]) -> Unit {
     let manifest_text = @fs.read_file_to_string(manifest_path)
     let result = @sheetsentry.verify_slice_bytes(slice_bytes, manifest_text)
     println("verify-slice: \{result.target}")
-    println("  before: \{result.before}  after: \{result.after}  verified: \{result.verified}")
+    let before = match result.before {
+      Some(value) => value
+      None => "<missing>"
+    }
+    let after = match result.after {
+      Some(value) => value
+      None => "<missing>"
+    }
+    println("  before: \{before}  after: \{after}  verified: \{result.verified}")
     if result.error is Some(message) {
       println("  error: \{message}")
     }

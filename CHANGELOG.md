@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Clean up CLI verification output so builds run without warnings.
+
 ## 0.4.0
 
 - Add calculation-slice extraction: target precedent closure, standalone XLSX reconstruction, and unrelated-sheet exclusion.

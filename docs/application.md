@@ -98,7 +98,7 @@ SheetSentry 不与 MoonCell 竞争“谁更会分析公式”，而是把分析�
 
 ## 预期验收产物
 
-- Mooncakes 包：`mhlagent/sheetsentry`，当前目标版本 `0.4.0`；
+- Mooncakes 包：`mhlagent/sheetsentry`，当前目标版本 `0.4.1`；
 - GitHub 仓库：https://github.com/mhlagent/sheetsentry；
 - `slice` 命令：生成独立 `.xlsx` 和 manifest；
 - `verify-slice` 命令：重新打开切片并验证目标值；
@@ -121,7 +121,7 @@ SheetSentry 不与 MoonCell 竞争“谁更会分析公式”，而是把分析�
 - 深度为 0 的切片明确报告 `complete=false` 和缺失依赖；
 - `verify-slice` 能重新验证目标值，篡改期望值后返回失败；
 - GitHub Actions 最新一次为绿色；
-- `moon publish` 成功发布 `mhlagent/sheetsentry@0.4.0`。
+- `moon publish` 成功发布 `mhlagent/sheetsentry@0.4.1`。
 
 ## 技术方案
 

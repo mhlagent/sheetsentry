@@ -20,7 +20,7 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.4.0` MVP, implemented in MoonBit. The current release supports:
+`0.4.1` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - calculation-slice extraction to a standalone `.xlsx`
