@@ -2,92 +2,100 @@
 
 ## One line
 
-SheetSentry is a MoonBit-native static analyzer and dependency tracer for Excel models: it finds risky formulas before a spreadsheet model is used or merged.
+SheetSentry extracts a reproducible calculation slice from an Excel model: it finds everything a target cell depends on, writes a standalone `.xlsx`, and records a SHA-256 manifest that verifies the target value.
 
 ## Problem
 
-Spreadsheet models are widely used for budgeting, forecasting, audit, and reporting, but they are usually reviewed by hand. Common failures are hard to see:
+Large spreadsheets are hard to review and risky to share. A reviewer often needs one output, but receives the whole workbook, including unrelated sheets, sensitive inputs, and thousands of cells.
 
-- one copied formula points at the wrong row;
-- a result depends on a hidden sheet or hidden row;
-- a growth rate is hardcoded inside a formula;
-- a circular reference makes the calculation order unstable;
-- an error value silently propagates downstream.
-
-Excel's Trace Precedents/Dependents helps for a single cell, but it is manual and cannot run in CI. Commercial spreadsheet audit tools are closed and expensive.
+Existing formula-analysis tools can point at suspicious formulas, compare versions, or preview an impact. They generally do not produce a minimal, self-contained workbook that can be reopened and verified independently.
 
 ## Solution
 
-SheetSentry reads `.xlsx` files, parses formula references across worksheets, builds a cell dependency graph, and runs a small deterministic rule engine.
+SheetSentry treats a target cell as a calculation contract:
 
-Current rules:
+1. Build the cross-sheet dependency graph.
+2. Collect the transitive precedent closure for the target.
+3. Rebuild a new workbook containing only the required sheets and cells.
+4. Preserve formulas, cached values, and basic cell types.
+5. Emit a manifest with source/slice SHA-256, included cells, completeness, unresolved dependencies, and target values.
+6. Reopen the slice with `verify-slice` and check the target value.
 
-| ID | Severity | Check |
+This supports audit, model handoff, regulatory review, confidential data minimization, and reproducible model debugging.
+
+## Core features
+
+### Calculation slice
+
+- `slice model.xlsx --target "Summary!B3" --out slice.xlsx --manifest slice.json`
+- transitive precedent closure with bounded depth
+- only required sheets/cells are copied
+- formulas, cached values, and basic cell types preserved
+- unrelated sheets and data excluded
+- depth-limited slices are marked incomplete instead of pretending to be complete
+
+### Reproducible manifest
+
+- `source_sha256` and `slice_sha256`
+- target value before/after extraction
+- `verified` and `complete` flags
+- included cells/sheets
+- unresolved dynamic references, named ranges, external links, and missing dependencies
+- `verify-slice slice.xlsx --manifest slice.json` for an independent recheck
+
+### Supporting audit layer
+
+Ten optional rules: error values, formula inconsistency, hardcoded constants, volatile functions, hidden formulas, cycles, dynamic references, external workbooks, whole-axis references, and missing cached values.
+
+Also includes baseline suppression, JSON config, severity/rule filters, terminal/JSON/SARIF/HTML reports, DOT/Mermaid graph export, and precedent/dependent tracing.
+
+## Why this is not another MoonCell
+
+| Capability | MoonCell | SheetSentry |
 | --- | --- | --- |
-| SS001 | High | Excel error values (`#REF!`, `#DIV/0!`, `#N/A`, ...) |
-| SS002 | Medium | Formula differs from its row/column pattern |
-| SS003 | Medium | Hardcoded numeric constant in a formula |
-| SS004 | Low | Volatile function (`TODAY`, `NOW`, `RAND`, `INDIRECT`, ...) |
-| SS005 | Medium | Formula on a hidden sheet or hidden row |
-| SS006 | High | Circular reference |
-| SS007 | Low | Dynamic reference prevents complete static tracing |
-| SS008 | Medium | External workbook references |
-| SS009 | Low | Whole-column/whole-row references |
-| SS010 | Low | Formula without cached result |
+| Formula anomaly analysis | Yes | Supporting layer only |
+| Version comparison / impact preview | Yes | Not the core claim |
+| Review workflow | Yes | Not the core claim |
+| Standalone slice XLSX | No | **Yes** |
+| SHA-256 slice manifest | No | **Yes** |
+| Reopen and verify target value | No | **Yes** |
+| Share only required sheets/cells | No | **Yes** |
+| Graph/cycle checks | Infrastructure | Infrastructure |
 
-Outputs:
-
-- baseline suppression for existing findings;
-- severity and disabled-rule filters;
-- JSON config files for rule filtering and ignored cells;
-- terminal summary;
-- JSON for automation;
-- SARIF 2.1.0 for code scanning;
-- self-contained HTML report;
-- precedents/dependents trace;
-- DOT / Mermaid graph export;
-- baseline suppression for existing findings.
-
-## Why MoonBit
-
-- The analyzer, rule engine, reports, and CLI are implemented in MoonBit.
-- It uses `moonbitlang/mbtexcel` for XLSX reading and formula metadata.
-- It compiles to a native CLI with `moon build --target native`.
-- It is a practical example of MoonBit in a data/engineering workflow, not a toy.
-
-## Why this is not a duplicate
-
-The mooncakes registry has XLSX readers/writers and formula evaluators, but no spreadsheet audit or formula-dependency analysis package. SheetSentry focuses on the analysis workflow: graph construction, rule findings, trace, CI thresholds, and reports.
-
-Adjacent projects:
-
-- `moonbitlang/mbtexcel` — XLSX read/write and formula evaluation;
-- `moonbitlang/office` — agent-oriented XLSX/DOCX query CLI;
-- `partsieve` — OOXML capability audit;
-- `yxl` — YAML to XLSX compiler;
-- `moonrow` — CSV snapshot comparison.
-
-None of them answers “what is wrong with this model?” or “what depends on this cell?”.
+Graph queries, cycle detection, and rules are not claimed as the independent core. The core is the transition from analysis to a **deliverable, reproducible model subset**.
 
 ## Demo
 
 ```bash
+moon run --target native cmd/main -- slice fixtures/bad_model.xlsx --target "Summary!B3" --out slice.xlsx --manifest slice.json
+moon run --target native cmd/main -- verify-slice slice.xlsx --manifest slice.json
 moon run --target native cmd/main -- audit fixtures/bad_model.xlsx
-moon run --target native cmd/main -- trace fixtures/bad_model.xlsx --cell "Summary!B3" --direction precedents --depth 1
-moon run --target native cmd/main -- audit fixtures/bad_model.xlsx --format html --out report.html
-moon run --target native cmd/main -- audit fixtures/clean_model.xlsx --fail-on low
+moon run --target native cmd/main -- graph fixtures/bad_model.xlsx --format mermaid --out graph.mmd
 ```
 
-The bad fixture produces 14 findings across the audit rules. The clean fixture produces zero findings.
+Expected slice result:
+
+- 12 cells across `Summary` and `Opex`;
+- unrelated `Tax` and `Scratch` sheets excluded;
+- target value `660` before and after extraction;
+- `verified=true`;
+- `complete=true`;
+- unresolved dependencies empty.
 
 ## Engineering quality
 
-- 46 MoonBit tests covering reference parsing, normalization, rules, config, baselines, reports, tracing, and graph export.
+- 54 MoonBit tests covering reference parsing, formula normalization, rules, config, baselines, reports, graph export, slice construction, manifest generation, and verification.
 - Reproducible XLSX fixtures generated by `scripts/make_fixtures.py`.
-- GitHub Actions runs `moon update`, `moon check`, `moon test`, `moon build`, and a CLI smoke test.
+- GitHub Actions runs `moon update`, `moon check`, `moon test`, `moon build`, and CLI smoke tests.
 - Apache-2.0 license.
-- Deterministic output; no network or AI dependency at analysis time.
-- Explicit limits: XLSX only; dynamic references are reported but not fully resolved.
+- Deterministic runtime; no network or AI dependency during slicing or verification.
+
+## Limits
+
+- XLSX only; styles, charts, macros, and external links are not fully preserved.
+- `INDIRECT` / `OFFSET` cannot be fully resolved statically; they are reported in the manifest.
+- Named ranges, structured references, and external workbook dependencies are roadmap items.
+- A depth-limited slice is intentionally marked incomplete.
 
 ## Links
 

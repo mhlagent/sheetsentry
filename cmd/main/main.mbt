@@ -6,6 +6,8 @@ fn usage() -> Unit {
   println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--config <path>] [--min-severity high|medium|low] [--disable SS003,SS004] [--fail-on high|medium|low]")
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
   println("  sheetsentry graph <file.xlsx> [--format dot|mermaid] [--out <path>]")
+  println("  sheetsentry slice <file.xlsx> --target <Sheet!A1> --out <slice.xlsx> [--manifest <manifest.json>] [--depth 20]")
+  println("  sheetsentry verify-slice <slice.xlsx> --manifest <manifest.json>")
   println("  sheetsentry rules")
 }
 
@@ -169,6 +171,80 @@ fn run_graph(args : Array[String]) -> Unit {
 }
 
 ///|
+fn run_slice(args : Array[String]) -> Unit {
+  let path = args[2]
+  let mut target = ""
+  let mut out = ""
+  let mut manifest_path = ""
+  let mut depth = 20
+  let mut i = 3
+  while i < args.length() {
+    if args[i] == "--target" && i + 1 < args.length() {
+      target = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--out" && i + 1 < args.length() {
+      out = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--manifest" && i + 1 < args.length() {
+      manifest_path = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--depth" && i + 1 < args.length() {
+      depth = @string.parse_int(args[i + 1]) catch { _ => 20 }
+      i = i + 2
+    } else {
+      i = i + 1
+    }
+  }
+  if target == "" || out == "" {
+    println("sheetsentry: --target and --out are required")
+    return
+  }
+  try {
+    let bytes = @fs.read_file_to_bytes(path)
+    let result = @sheetsentry.slice_bytes(bytes, path, target, depth)
+    @fs.write_bytes_to_file(out, result.data)
+    if manifest_path != "" {
+      @fs.write_string_to_file(manifest_path, @sheetsentry.slice_manifest_json(result.manifest))
+    }
+    println("slice: \{target} -> \{out}")
+    println("  cells: \{result.manifest.included_cells.length()}  sheets: \{result.manifest.included_sheets.length()}  verified: \{result.manifest.verified}  complete: \{result.manifest.complete}  unresolved: \{result.manifest.unresolved.length()}")
+  } catch {
+    err => println("sheetsentry: \{err}")
+  }
+}
+
+///|
+fn run_verify_slice(args : Array[String]) -> Unit {
+  let slice_path = args[2]
+  let mut manifest_path = ""
+  let mut i = 3
+  while i < args.length() {
+    if args[i] == "--manifest" && i + 1 < args.length() {
+      manifest_path = args[i + 1]
+      i = i + 2
+    } else {
+      i = i + 1
+    }
+  }
+  if manifest_path == "" {
+    println("sheetsentry: --manifest is required")
+    return
+  }
+  try {
+    let slice_bytes = @fs.read_file_to_bytes(slice_path)
+    let manifest_text = @fs.read_file_to_string(manifest_path)
+    let result = @sheetsentry.verify_slice_bytes(slice_bytes, manifest_text)
+    println("verify-slice: \{result.target}")
+    println("  before: \{result.before}  after: \{result.after}  verified: \{result.verified}")
+    if result.error is Some(message) {
+      println("  error: \{message}")
+    }
+  } catch {
+    err => println("sheetsentry: \{err}")
+  }
+}
+
+///|
 fn main {
   let args = @env.args()
   if args.length() < 2 {
@@ -191,6 +267,18 @@ fn main {
     "graph" =>
       if args.length() >= 3 {
         run_graph(args)
+      } else {
+        usage()
+      }
+    "slice" =>
+      if args.length() >= 3 {
+        run_slice(args)
+      } else {
+        usage()
+      }
+    "verify-slice" =>
+      if args.length() >= 3 {
+        run_verify_slice(args)
       } else {
         usage()
       }

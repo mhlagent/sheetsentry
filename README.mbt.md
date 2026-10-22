@@ -1,8 +1,8 @@
 # SheetSentry
 
-**Static analysis and dependency tracing for Excel models, written in MoonBit.**
+**Calculation slicing and model audit for Excel files, written in MoonBit.**
 
-SheetSentry reads `.xlsx` workbooks, parses formula references across sheets, builds a cell dependency graph, and reports model risks that are hard to see in Excel: error values, inconsistent formulas, hardcoded constants, volatile functions, hidden content, and circular references.
+SheetSentry extracts a reproducible calculation slice from any target cell in an `.xlsx` workbook: it follows the target's precedents, writes a new standalone workbook containing only the required sheets and cells, and records a SHA-256 manifest plus target-value verification. An audit layer adds formula-risk rules, baselines, filters, and reports.
 
 It is designed for finance, audit, FP&A, and data teams that want spreadsheet checks to run like code checks: deterministic, scriptable, and CI-friendly.
 
@@ -20,17 +20,39 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.3.0` MVP, implemented in MoonBit. The current release supports:
+`0.4.0` MVP, implemented in MoonBit. The current release supports:
 
-- XLSX reading through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
+- XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
+- calculation-slice extraction to a standalone `.xlsx`
+- SHA-256 slice manifests with completeness and unresolved-dependency reporting
+- `verify-slice` for target-value reproducibility checks
 - cross-sheet formula reference extraction
 - dependency graph construction
-- ten audit rules, baseline suppression, config files, and graph export
+- ten audit rules, baseline suppression, config files, and graph export as supporting diagnostics
 - terminal, JSON, SARIF, and self-contained HTML reports
 - `trace` for precedents and dependents
 - DOT / Mermaid dependency graph export
 - JSON config files for rule filtering and ignored cells
 - CI-friendly `--fail-on` exit codes and baselines
+
+## Calculation slice
+
+A slice answers: **“What is the smallest self-contained workbook that reproduces this output?”**
+
+```bash
+moon run --target native cmd/main -- slice model.xlsx --target "Summary!B3" --out slice.xlsx --manifest slice.json
+moon run --target native cmd/main -- verify-slice slice.xlsx --manifest slice.json
+```
+
+The manifest records:
+
+- the target and included cells/sheets;
+- source and slice SHA-256 hashes;
+- target value before/after extraction;
+- whether the slice is `complete`;
+- unresolved dynamic references, named ranges, external links, or missing dependencies.
+
+Only the sheets and cells needed by the target are copied. Unrelated sheets and data are not included.
 
 ## Quick start
 
@@ -178,6 +200,7 @@ flowchart LR
 
 Core modules:
 
+- `slice.mbt` — calculation-slice extraction, standalone workbook reconstruction, SHA-256 manifest, and verification.
 - `formula.mbt` — A1 / range / sheet-qualified reference extraction, normalization, function names, numeric literals.
 - `audit.mbt` — workbook scan, dependency graph, rule engine, cycle detection.
 - `trace.mbt` — graph construction and BFS traversal for precedents/dependents.
@@ -202,7 +225,7 @@ Tests cover:
 - severity and disabled-rule filters;
 - graph export;
 - rule catalog;
-- 46 tests in total.
+- 54 tests in total.
 - precedents and dependents tracing;
 - fail thresholds.
 

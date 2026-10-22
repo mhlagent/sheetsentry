@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Add calculation-slice extraction: target precedent closure, standalone XLSX reconstruction, and unrelated-sheet exclusion.
+- Add SHA-256 slice manifests with included cells, completeness, unresolved dependencies, and target before/after values.
+- Add `verify-slice` for independent target-value verification.
+- Clarify the independent core boundary versus formula-analysis tools.
+- Expand tests to 54.
+
 ## 0.3.0
 
 - Add JSON config files (`--config`) for severity, disabled rules, ignored cells, and fail-on.

@@ -248,3 +248,79 @@ test "trace depth zero returns start" {
   assert_eq(nodes.length(), 1)
   assert_eq(nodes[0], "Summary!B3")
 }
+
+///|
+test "slice includes only needed sheets" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  assert_eq(result.manifest.included_sheets.length(), 2)
+  assert_true(result.manifest.included_sheets.contains("Summary"))
+  assert_true(result.manifest.included_sheets.contains("Opex"))
+  assert_false(result.manifest.included_sheets.contains("Scratch"))
+}
+
+///|
+test "slice preserves target value" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let sliced = @mbtexcel.read(result.data)
+  let target = sliced.sheet("Summary").unwrap().get_cell("B3")
+  assert_eq(target, Some("660"))
+}
+
+///|
+test "depth-limited slice is incomplete" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 0)
+  assert_eq(result.manifest.included_cells.length(), 1)
+  assert_false(result.manifest.complete)
+  assert_true(result.manifest.unresolved.length() > 0)
+}
+
+///|
+test "slice manifest json" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let json = @sheetsentry.slice_manifest_json(result.manifest)
+  assert_true(json.contains("\"kind\":\"calculation-slice\""))
+  assert_true(json.contains("\"complete\":true"))
+  assert_true(json.contains("\"target\":\"Summary!B3\""))
+}
+
+///|
+test "slice hashes are sha256 length" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  assert_eq(result.manifest.source_sha256.length(), 64)
+  assert_eq(result.manifest.slice_sha256.length(), 64)
+  assert_true(result.manifest.source_sha256 != result.manifest.slice_sha256)
+}
+
+///|
+test "missing slice target is not verified" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Missing!A1", 20)
+  assert_false(result.manifest.verified)
+  assert_false(result.manifest.complete)
+  assert_true(result.manifest.unresolved.length() > 0)
+}
+
+///|
+test "verify slice from manifest" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
+  assert_true(verification.verified)
+  assert_eq(verification.target, "Summary!B3")
+}
+
+///|
+test "verify slice rejects changed expectation" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let manifest = "{\"target\":\"Summary!B3\",\"target_value_before\":\"999\"}"
+  let verification = @sheetsentry.verify_slice_bytes(result.data, manifest)
+  assert_false(verification.verified)
+}

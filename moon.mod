@@ -1,6 +1,6 @@
 name = "mhlagent/sheetsentry"
 
-version = "0.3.0"
+version = "0.4.0"
 
 readme = "README.mbt.md"
 
@@ -12,7 +12,7 @@ keywords = ["excel", "xlsx", "audit", "spreadsheet", "static-analysis"]
 
 preferred_target = "native"
 
-description = "Static analysis and dependency tracing for Excel models, written in MoonBit."
+description = "Calculation slicing and model audit for Excel files, written in MoonBit."
 
 import {
   "moonbitlang/mbtexcel@0.3.0",
