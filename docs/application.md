@@ -4,7 +4,7 @@
 
 - 项目名称：SheetSentry：可复现 Excel 计算切片与模型审计
 - 参赛者：莫淮隆
-- 联系方式：待填写
+- 联系方式：18070649514
 - GitHub 仓库链接：https://github.com/mhlagent/sheetsentry
 - 项目方向：MoonBit 数据处理 / 可复现计算切片
 - 是否为移植项目：否，原创项目
