@@ -6,7 +6,7 @@ fn usage() -> Unit {
   println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--config <path>] [--min-severity high|medium|low] [--disable SS003,SS004] [--fail-on high|medium|low]")
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
   println("  sheetsentry graph <file.xlsx> [--format dot|mermaid] [--out <path>]")
-  println("  sheetsentry slice <file.xlsx> --target <Sheet!A1> --out <slice.xlsx> [--manifest <manifest.json>] [--depth 20]")
+  println("  sheetsentry slice <file.xlsx> --target <Sheet!A1> --out <slice.xlsx> [--manifest <manifest.json>] [--external book.xlsx=path] [--depth 20]")
   println("  sheetsentry verify-slice <slice.xlsx> --manifest <manifest.json>")
   println("  sheetsentry rules")
 }
@@ -177,6 +177,7 @@ fn run_slice(args : Array[String]) -> Unit {
   let mut out = ""
   let mut manifest_path = ""
   let mut depth = 20
+  let external_map : Map[String, Bytes] = Map([])
   let mut i = 3
   while i < args.length() {
     if args[i] == "--target" && i + 1 < args.length() {
@@ -191,6 +192,19 @@ fn run_slice(args : Array[String]) -> Unit {
     } else if args[i] == "--depth" && i + 1 < args.length() {
       depth = @string.parse_int(args[i + 1]) catch { _ => 20 }
       i = i + 2
+    } else if args[i] == "--external" && i + 1 < args.length() {
+      let spec = args[i + 1]
+      match spec.split("=").collect() {
+        [name, path] => {
+          try {
+            external_map.set(name.to_owned(), @fs.read_file_to_bytes(path.to_owned()))
+          } catch {
+            _ => println("sheetsentry: failed to read external workbook \{path}")
+          }
+        }
+        _ => println("sheetsentry: --external expects name=path")
+      }
+      i = i + 2
     } else {
       i = i + 1
     }
@@ -201,13 +215,13 @@ fn run_slice(args : Array[String]) -> Unit {
   }
   try {
     let bytes = @fs.read_file_to_bytes(path)
-    let result = @sheetsentry.slice_bytes(bytes, path, target, depth)
+    let result = @sheetsentry.slice_bytes_with_external(bytes, path, target, depth, external_map)
     @fs.write_bytes_to_file(out, result.data)
     if manifest_path != "" {
       @fs.write_string_to_file(manifest_path, @sheetsentry.slice_manifest_json(result.manifest))
     }
     println("slice: \{target} -> \{out}")
-    println("  cells: \{result.manifest.included_cells.length()}  sheets: \{result.manifest.included_sheets.length()}  verified: \{result.manifest.verified}  complete: \{result.manifest.complete}  unresolved: \{result.manifest.unresolved.length()}")
+    println("  cells: \{result.manifest.included_cells.length()}  sheets: \{result.manifest.included_sheets.length()}  external: \{result.manifest.external_workbooks.length()}  verified: \{result.manifest.verified}  complete: \{result.manifest.complete}  unresolved: \{result.manifest.unresolved.length()}")
   } catch {
     err => println("sheetsentry: \{err}")
   }

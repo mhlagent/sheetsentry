@@ -4,7 +4,7 @@ test "summarize bad model" {
   let summary = @sheetsentry.summarize_bytes(bytes)
   assert_eq(summary.sheets.length(), 5)
   assert_eq(summary.sheets[0], "Inputs")
-  assert_eq(summary.formula_cells, 17)
+  assert_eq(summary.formula_cells, 22)
 }
 
 ///|
@@ -323,4 +323,94 @@ test "verify slice rejects changed expectation" {
   let manifest = "{\"target\":\"Summary!B3\",\"target_value_before\":\"999\"}"
   let verification = @sheetsentry.verify_slice_bytes(result.data, manifest)
   assert_false(verification.verified)
+}
+
+///|
+test "table catalog from xlsx" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let workbook = @xlsx.read(bytes)
+  let tables = @sheetsentry.table_catalog(bytes, workbook.get_sheet_list())
+  assert_eq(tables.length(), 1)
+  assert_eq(tables[0].name, "OpexTable")
+  assert_eq(tables[0].sheet, "Opex")
+  assert_eq(tables[0].columns.length(), 4)
+  assert_eq(tables[0].columns[1], "Amount")
+}
+
+///|
+test "dynamic offset resolves" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let workbook = @xlsx.read(bytes)
+  let refs = @sheetsentry.dynamic_refs("=OFFSET(Inputs!B2,1,0)", "Summary", 13, workbook)
+  println("offset refs=\{refs.length()}")
+  assert_eq(refs.length(), 1)
+}
+
+///|
+test "structured reference slice is complete" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B10", 20)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  let sliced = @mbtexcel.read(result.data)
+  let formula = sliced.sheet("Summary").unwrap().get_cell_formula("B10")
+  assert_true(formula.unwrap().contains("Opex!$B$2:$B$6"))
+}
+
+///|
+test "named range slice preserves definition" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B11", 20)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  let sliced = @mbtexcel.read(result.data)
+  let mut found = false
+  for defined in sliced.get_defined_names() {
+    if defined.name == "RevenueInput" {
+      found = true
+    }
+  }
+  assert_true(found)
+}
+
+///|
+test "indirect slice resolves literal reference" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B12", 20)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  assert_true(result.manifest.included_cells.contains("Inputs!B3"))
+}
+
+///|
+test "offset slice resolves constant offsets" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B13", 20)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  assert_true(result.manifest.included_cells.contains("Inputs!B3"))
+}
+
+///|
+test "external workbook slice with mapping" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let external = @fs.read_file_to_bytes("fixtures/external_book.xlsx")
+  let map : Map[String, Bytes] = Map([("external_book.xlsx", external)])
+  let result = @sheetsentry.slice_bytes_with_external(bytes, "bad_model.xlsx", "Summary!B14", 20, map)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  assert_eq(result.manifest.external_workbooks.length(), 1)
+  let sliced = @mbtexcel.read(result.data)
+  let external_sheet = sliced.sheet("__ext__external_book__Sheet1")
+  assert_true(external_sheet is Some(_))
+  assert_eq(external_sheet.unwrap().get_cell("A1"), Some("42"))
+}
+
+///|
+test "external workbook slice without mapping is incomplete" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B14", 20)
+  assert_true(result.manifest.verified)
+  assert_false(result.manifest.complete)
+  assert_true(result.manifest.unresolved.length() > 0)
 }

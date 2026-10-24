@@ -1,6 +1,7 @@
 ///|
 pub fn build_graph_bytes(bytes : Bytes) -> DependencyGraph raise @xlsx.XlsxError {
   let workbook = @xlsx.read(bytes)
+  let tables = table_catalog(bytes, workbook.get_sheet_list())
   let graph = DependencyGraph::new()
   for name in workbook.get_sheet_list() {
     let sheet = workbook.sheet(name).unwrap()
@@ -13,7 +14,7 @@ pub fn build_graph_bytes(bytes : Bytes) -> DependencyGraph raise @xlsx.XlsxError
           Some(text) => {
             let key = node_key(name, row, col)
             ignore(graph.edges.get_or_init(key, fn() { [] }))
-            for r in extract_refs(text, name).cells {
+            for r in resolve_formula_cells(workbook, tables, name, text, row) {
               let target_sheet = match r.sheet {
                 Some(value) => value
                 None => name

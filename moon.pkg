@@ -2,7 +2,9 @@ import {
   "moonbitlang/mbtexcel" @mbtexcel,
   "moonbitlang/mbtexcel/xlsx" @xlsx,
   "moonbitlang/core/json" @json,
+  "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/x/crypto" @crypto,
+  "moonbit-community/flate/zip" @zip,
 }
 
 import {

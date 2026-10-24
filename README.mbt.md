@@ -20,10 +20,12 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.4.1` MVP, implemented in MoonBit. The current release supports:
+`0.5.0` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - calculation-slice extraction to a standalone `.xlsx`
+- named ranges, literal `INDIRECT`, constant `OFFSET`, and table structured references
+- external workbook mapping with value import and formula rewriting
 - SHA-256 slice manifests with completeness and unresolved-dependency reporting
 - `verify-slice` for target-value reproducibility checks
 - cross-sheet formula reference extraction
@@ -43,6 +45,13 @@ A slice answers: **“What is the smallest self-contained workbook that reproduc
 moon run --target native cmd/main -- slice model.xlsx --target "Summary!B3" --out slice.xlsx --manifest slice.json
 moon run --target native cmd/main -- verify-slice slice.xlsx --manifest slice.json
 ```
+
+Common reference support:
+
+- named ranges are resolved and copied into the slice;
+- `INDIRECT("Sheet!A1")` and constant `OFFSET(A1,r,c)` are resolved;
+- table references such as `OpexTable[Amount]` are resolved and rewritten to A1 ranges;
+- external references can be imported with `--external book.xlsx=path`; referenced values are copied into `__ext__*` sheets and formulas are rewritten.
 
 The manifest records:
 
@@ -225,7 +234,7 @@ Tests cover:
 - severity and disabled-rule filters;
 - graph export;
 - rule catalog;
-- 54 tests in total.
+- 62 tests in total.
 - precedents and dependents tracing;
 - fail thresholds.
 

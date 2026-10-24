@@ -42,6 +42,7 @@ def add_opex(wb, bad: bool):
             ws.write_formula(r - 1, 2, "=B7*$D$2", None, 0)
         else:
             ws.write_formula(r - 1, 2, f"=B{r}*$D$2", None, amount * 1.1)
+    ws.add_table("A1:D6", {"name": "OpexTable", "columns": [{"header": "Item"}, {"header": "Amount"}, {"header": "Inflated"}, {"header": "Multiplier"}]})
     if bad:
         ws.set_row(5, None, None, {"hidden": True})  # row 6 is hidden
 
@@ -76,6 +77,16 @@ def add_summary(wb, bad: bool):
         ws.write_formula("B8", "=SUM(Opex!C:C)", None, 660)
         ws.write("A9", "Uncached formula")
         ws.write_formula("B9", "=1+1", None, 0)
+        ws.write("A10", "Structured total")
+        ws.write_formula("B10", "=SUM(OpexTable[Amount])", None, 660)
+        ws.write("A11", "Named input")
+        ws.write_formula("B11", "=RevenueInput*2", None, 2000)
+        ws.write("A12", "Indirect ref")
+        ws.write_formula("B12", "=INDIRECT(\"Inputs!B3\")*1000", None, 30)
+        ws.write("A13", "Offset ref")
+        ws.write_formula("B13", "=OFFSET(Inputs!B2,1,0)", None, 0.03)
+        ws.write("A14", "External value")
+        ws.write_formula("B14", "=[external_book.xlsx]Sheet1!A1", None, 42)
 
 
 def add_tax(wb, bad: bool):
@@ -123,6 +134,14 @@ def strip_cached_value(path: Path, cell: str) -> None:
             dst.writestr(item, data)
 
 
+def build_external(path: Path):
+    wb = xlsxwriter.Workbook(path)
+    ws = wb.add_worksheet("Sheet1")
+    ws.write("A1", 42)
+    wb.close()
+    print(path)
+
+
 def build(path: Path, bad: bool):
     wb = xlsxwriter.Workbook(path)
     wb.set_properties({"title": "SheetSentry bad model" if bad else "SheetSentry clean model"})
@@ -131,6 +150,8 @@ def build(path: Path, bad: bool):
     add_summary(wb, bad)
     add_tax(wb, bad)
     add_scratch(wb, bad)
+    if bad:
+        wb.define_name("RevenueInput", "=Inputs!$B$2")
     wb.close()
     if bad:
         strip_cached_value(path, "B9")
@@ -141,3 +162,4 @@ if __name__ == "__main__":
     FIXTURES.mkdir(exist_ok=True)
     build(FIXTURES / "bad_model.xlsx", True)
     build(FIXTURES / "clean_model.xlsx", False)
+    build_external(FIXTURES / "external_book.xlsx")

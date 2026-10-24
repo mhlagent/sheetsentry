@@ -7,7 +7,7 @@ pub(all) enum Severity {
 
 ///|
 pub fn tool_version() -> String {
-  "0.4.1"
+  "0.5.0"
 }
 
 ///|
@@ -246,7 +246,11 @@ fn external_link(formula : StringView) -> String? {
         j = j + 1
       }
       if j < formula.length() {
-        return Some(formula[i + 1:j].to_owned())
+        let name = formula[i + 1:j].to_owned()
+        let lower = name.to_lower()
+        if lower.has_suffix(".xlsx") || lower.has_suffix(".xlsm") || lower.has_suffix(".xls") {
+          return Some(name)
+        }
       }
     }
     i = i + 1
@@ -299,7 +303,7 @@ fn collect_sheet_cells(
               }
             }
           }
-          if refs.dynamic {
+          if refs.dynamic && dynamic_refs(text, sheet_name, row, workbook).length() == 0 {
             findings.push(
               make_finding(
                 "SS007",

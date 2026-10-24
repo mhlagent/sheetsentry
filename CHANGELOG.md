@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Add named-range resolution and defined-name preservation in slices.
+- Add literal `INDIRECT` and constant `OFFSET` dependency resolution.
+- Add table catalog parsing and structured-reference rewriting to A1 ranges.
+- Add external workbook mapping with value import and formula rewriting.
+- Expand tests to 62.
+
 ## 0.4.1
 
 - Clean up CLI verification output so builds run without warnings.
