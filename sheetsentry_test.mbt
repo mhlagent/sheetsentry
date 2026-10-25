@@ -414,3 +414,34 @@ test "external workbook slice without mapping is incomplete" {
   assert_false(result.manifest.complete)
   assert_true(result.manifest.unresolved.length() > 0)
 }
+
+///|
+test "multi-target slice" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.complete)
+  assert_eq(result.manifest.targets.length(), 2)
+  assert_eq(result.manifest.targets[1].target, "Summary!B10")
+}
+
+///|
+test "multi-target verification" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
+  assert_true(verification.verified)
+  assert_true(verification.hash_verified)
+  assert_eq(verification.targets_verified, 2)
+  assert_eq(verification.targets_total, 2)
+}
+
+///|
+test "slice certificate html" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let html = @sheetsentry.slice_report_html(result.manifest)
+  assert_true(html.contains("slice certificate"))
+  assert_true(html.contains("Summary!B3"))
+  assert_true(html.contains(result.manifest.slice_sha256))
+}

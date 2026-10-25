@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- Add multi-target calculation slices with unioned precedent closure.
+- Add HTML slice certificates.
+- Verify slice SHA-256 and all target values in `verify-slice`.
+- Expand tests to 65.
+
 ## 0.5.0
 
 - Add named-range resolution and defined-name preservation in slices.
