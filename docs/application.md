@@ -26,16 +26,16 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 - 外部依赖：通过 `--external book.xlsx=path` 导入被引用值到 `__ext__*` 工作表，并重写公式；
 - 可复现 manifest：记录源/切片 SHA-256、最小性指标、包含/排除单元格、目标前后值、`verified`、`calc_verified`、`complete`、未解析项和外部单元格；
 - 独立重算：对切片中的目标公式重新计算并对比原始缓存值；
-- 最小性验证：统计总使用单元格、切片使用单元格和排除单元格，并验证切片范围等于目标的可达闭包；
-- 切片验证：`verify-slice` 校验切片 SHA-256、全部目标值和目标数量；
+- 最小性验证：输出 `unreachable_included`、`missing_required`、`excluded_reachable` 明细，并验证切片范围等于目标的可达闭包；
+- 切片验证：`verify-slice --source source.xlsx` 校验源文件 SHA-256、切片 SHA-256、全部目标值、独立重算值和目标数量；
 - 切片证书：生成自包含 HTML，列出目标、哈希、sheet、未解析项和验证结果；
 - 辅助审计：10 条可选规则、baseline、JSON 配置、terminal/JSON/SARIF/HTML 报告、DOT/Mermaid 图导出。
 
 ## 预期验收产物
 
-- Mooncakes：`mhlagent/sheetsentry@0.7.0`；
+- Mooncakes：`mhlagent/sheetsentry@0.8.0`；
 - `slice` 与 `verify-slice` CLI，以及可复用的 MoonBit API；
-- 68 个 MoonBit 测试，GitHub Actions 全绿；
+- 71 个 MoonBit 测试，GitHub Actions 全绿；
 - 示例切片、manifest、HTML/JSON/SARIF 报告；
 - Apache-2.0 许可证和完整 README。
 
@@ -47,7 +47,7 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 
 ## 验收指标
 
-- `moon test --target native`：68 个测试全部通过；
+- `moon test --target native`：71 个测试全部通过；
 - `Summary!B3` 切片包含 12 个单元格、2 个 sheet，排除无关的 `Tax` / `Scratch`，`verified=true`、`complete=true`；
 - 多目标切片同时包含 `Summary!B3` 和 `Summary!B10`，`verify-slice` 返回 2/2 目标通过、2/2 独立重算通过且切片哈希一致；
 - 多目标切片保留 13/65 个已使用单元格，排除 52 个，`minimality_verified=true`；
@@ -56,7 +56,7 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 - `INDIRECT` / `OFFSET` 目标可解析并完整切片；
 - 外部工作簿 `Summary!B14` 带映射时 `complete=true`；
 - 深度截断切片明确返回 `complete=false`；
-- `moon publish` 成功发布 `0.7.0`。
+- `moon publish` 成功发布 `0.8.0`。
 
 ## 移植或参考说明
 

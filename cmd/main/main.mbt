@@ -7,7 +7,7 @@ fn usage() -> Unit {
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
   println("  sheetsentry graph <file.xlsx> [--format dot|mermaid] [--out <path>]")
   println("  sheetsentry slice <file.xlsx> --target <Sheet!A1> [--target <Sheet!B1>] --out <slice.xlsx> [--manifest <manifest.json>] [--report <certificate.html>] [--external book.xlsx=path] [--depth 20]")
-  println("  sheetsentry verify-slice <slice.xlsx> --manifest <manifest.json>")
+  println("  sheetsentry verify-slice <slice.xlsx> --manifest <manifest.json> [--source <source.xlsx>]")
   println("  sheetsentry rules")
 }
 
@@ -243,10 +243,14 @@ fn run_slice(args : Array[String]) -> Unit {
 fn run_verify_slice(args : Array[String]) -> Unit {
   let slice_path = args[2]
   let mut manifest_path = ""
+  let mut source_path = ""
   let mut i = 3
   while i < args.length() {
     if args[i] == "--manifest" && i + 1 < args.length() {
       manifest_path = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--source" && i + 1 < args.length() {
+      source_path = args[i + 1]
       i = i + 2
     } else {
       i = i + 1
@@ -259,7 +263,12 @@ fn run_verify_slice(args : Array[String]) -> Unit {
   try {
     let slice_bytes = @fs.read_file_to_bytes(slice_path)
     let manifest_text = @fs.read_file_to_string(manifest_path)
-    let result = @sheetsentry.verify_slice_bytes(slice_bytes, manifest_text)
+    let result = if source_path != "" {
+      let source_bytes = @fs.read_file_to_bytes(source_path)
+      @sheetsentry.verify_slice_with_source(source_bytes, slice_bytes, manifest_text)
+    } else {
+      @sheetsentry.verify_slice_bytes(slice_bytes, manifest_text)
+    }
     println("verify-slice: \{result.target}")
     let before = match result.before {
       Some(value) => value
@@ -271,6 +280,9 @@ fn run_verify_slice(args : Array[String]) -> Unit {
     }
     println("  before: \{before}  after: \{after}  verified: \{result.verified}")
     println("  targets: \{result.targets_verified}/\{result.targets_total}  recalculated: \{result.targets_calc_verified}/\{result.targets_total}  slice_sha256: \{result.hash_verified}")
+    if source_path != "" {
+      println("  source_sha256: \{result.source_hash_verified}")
+    }
     if result.error is Some(message) {
       println("  error: \{message}")
     }

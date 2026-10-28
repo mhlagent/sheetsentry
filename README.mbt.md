@@ -20,12 +20,12 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.7.0` MVP, implemented in MoonBit. The current release supports:
+`0.8.0` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - calculation-slice extraction to a standalone `.xlsx`
 - multi-target slices and an HTML slice certificate
-- slice SHA-256, minimality metrics, and per-target verification
+- slice/source SHA-256, minimality detail checks, and per-target verification
 - independent recalculation of every target with a `calc_verified` result
 - named ranges, literal `INDIRECT`, constant `OFFSET`, and table structured references
 - external workbook mapping with value import and formula rewriting
@@ -237,7 +237,7 @@ Tests cover:
 - severity and disabled-rule filters;
 - graph export;
 - rule catalog;
-- 68 tests in total.
+- 71 tests in total.
 - precedents and dependents tracing;
 - fail thresholds.
 

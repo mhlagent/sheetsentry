@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- Add minimality detail lists: unreachable included, missing required, and excluded reachable.
+- Add `verify-slice --source` source hash verification.
+- Add an integrated six-target slice test covering named, dynamic, structured, and external references.
+- Expand tests to 71.
+
 ## 0.7.0
 
 - Add slice minimality metrics and closure verification.

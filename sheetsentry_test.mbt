@@ -482,3 +482,38 @@ test "complex reference slices recalculate independently" {
   assert_eq(named.manifest.targets[0].calculated, Some("2000"))
   assert_eq(indirect.manifest.targets[0].calculated, Some("30"))
 }
+
+///|
+test "minimality detail lists are empty" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  assert_eq(result.manifest.unreachable_included.length(), 0)
+  assert_eq(result.manifest.missing_required.length(), 0)
+  assert_eq(result.manifest.excluded_reachable.length(), 0)
+}
+
+///|
+test "source hash verification" {
+  let source = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(source, "bad_model.xlsx", "Summary!B3", 20)
+  let manifest = @sheetsentry.slice_manifest_json(result.manifest)
+  let ok = @sheetsentry.verify_slice_with_source(source, result.data, manifest)
+  assert_true(ok.source_hash_verified)
+  let wrong = @sheetsentry.verify_slice_with_source(@fs.read_file_to_bytes("fixtures/clean_model.xlsx"), result.data, manifest)
+  assert_false(wrong.source_hash_verified)
+}
+
+///|
+test "complex workbook combined slice" {
+  let source = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let external = @fs.read_file_to_bytes("fixtures/external_book.xlsx")
+  let map : Map[String, Bytes] = Map([("external_book.xlsx", external)])
+  let targets = ["Summary!B3", "Summary!B10", "Summary!B11", "Summary!B12", "Summary!B13", "Summary!B14"]
+  let result = @sheetsentry.slice_bytes_many(source, "bad_model.xlsx", targets, 20, map)
+  assert_eq(result.manifest.targets.length(), 6)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.calc_verified)
+  assert_true(result.manifest.minimality_verified)
+  assert_true(result.manifest.complete)
+  assert_eq(result.manifest.external_workbooks.length(), 1)
+}
