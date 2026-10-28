@@ -233,7 +233,7 @@ fn run_slice(args : Array[String]) -> Unit {
       @fs.write_string_to_file(report_path, @sheetsentry.slice_report_html(result.manifest))
     }
     println("slice: \{targets.length()} target(s) -> \{out}")
-    println("  cells: \{result.manifest.included_cells.length()}  sheets: \{result.manifest.included_sheets.length()}  external: \{result.manifest.external_workbooks.length()}  verified: \{result.manifest.verified}  complete: \{result.manifest.complete}  unresolved: \{result.manifest.unresolved.length()}")
+    println("  cells: \{result.manifest.included_cells.length()}  sheets: \{result.manifest.included_sheets.length()}  used: \{result.manifest.reduction_ratio}  minimal: \{result.manifest.minimality_verified}  external: \{result.manifest.external_workbooks.length()}  verified: \{result.manifest.verified}  calc: \{result.manifest.calc_verified}  complete: \{result.manifest.complete}  unresolved: \{result.manifest.unresolved.length()}")
   } catch {
     err => println("sheetsentry: \{err}")
   }
@@ -270,7 +270,7 @@ fn run_verify_slice(args : Array[String]) -> Unit {
       None => "<missing>"
     }
     println("  before: \{before}  after: \{after}  verified: \{result.verified}")
-    println("  targets: \{result.targets_verified}/\{result.targets_total}  slice_sha256: \{result.hash_verified}")
+    println("  targets: \{result.targets_verified}/\{result.targets_total}  recalculated: \{result.targets_calc_verified}/\{result.targets_total}  slice_sha256: \{result.hash_verified}")
     if result.error is Some(message) {
       println("  error: \{message}")
     }

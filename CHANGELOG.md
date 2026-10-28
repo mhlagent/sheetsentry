@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- Add slice minimality metrics and closure verification.
+- Add independent recalculation for all slice targets.
+- Add `calc_verified`, `minimality_verified`, reduction metrics, and per-target calculated values.
+- Expand tests to 68.
+
 ## 0.6.0
 
 - Add multi-target calculation slices with unioned precedent closure.

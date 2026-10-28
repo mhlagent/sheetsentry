@@ -635,3 +635,127 @@ pub fn external_refs(formula : StringView) -> Array[ExternalRef] {
   }
   result
 }
+
+///|
+fn rewrite_indirect(formula : StringView, current_sheet : String) -> String {
+  let upper = formula.to_owned().to_upper()
+  let mut out = ""
+  let mut last = 0
+  let mut search = 0
+  while true {
+    match find_sub(upper, "INDIRECT(", search) {
+      Some(pos) => {
+        let mut i = pos + 9
+        while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
+          i = i + 1
+        }
+        if i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == '"' {
+          let mut j = i + 1
+          let mut content = ""
+          while j < formula.length() {
+            let c = formula.get_char(j).unwrap_or('\u0000')
+            if c == '"' {
+              if j + 1 < formula.length() && formula.get_char(j + 1).unwrap_or('\u0000') == '"' {
+                content = content + "\""
+                j = j + 2
+              } else {
+                break
+              }
+            } else {
+              content = content + c.to_string()
+              j = j + 1
+            }
+          }
+          match find_sub(formula, ")", j + 1) {
+            Some(end) => {
+              let refs = extract_refs(content, current_sheet)
+              if refs.cells.length() > 0 {
+                out = out + formula[last:pos].to_owned() + content
+                last = end + 1
+              }
+              search = end + 1
+            }
+            None => break
+          }
+        } else {
+          search = pos + 9
+        }
+      }
+      None => break
+    }
+  }
+  out + formula[last:].to_owned()
+}
+
+///|
+fn rewrite_offset(formula : StringView, current_sheet : String) -> String raise @xlsx.XlsxError {
+  let upper = formula.to_owned().to_upper()
+  let mut out = ""
+  let mut last = 0
+  let mut search = 0
+  while true {
+    match find_sub(upper, "OFFSET(", search) {
+      Some(pos) => {
+        match find_sub(formula, ")", pos + 7) {
+          Some(end) => {
+            let args = formula[pos + 7:end]
+            let commas : Array[Int] = []
+            let mut i = 0
+            while i < args.length() {
+              if args.get_char(i).unwrap_or('\u0000') == ',' {
+                commas.push(i)
+              }
+              i = i + 1
+            }
+            let replacement = if commas.length() >= 2 {
+              let base_text = args[:commas[0]]
+              let rest = args[commas[1] + 1:]
+              let base_refs = extract_refs(base_text, current_sheet)
+              let rows = parse_signed_int(args, commas[0] + 1)
+              let cols = parse_signed_int(rest, 0)
+              match (base_refs.cells, rows, cols) {
+                ([base, ..], Some((row_delta, _)), Some((col_delta, _))) => {
+                  let row = base.row + row_delta
+                  let col = base.col + col_delta
+                  if row > 0 && col > 0 {
+                    let cell = @xlsx.coordinates_to_cell_name(col, row)
+                    match base.sheet {
+                      Some(sheet) => Some(sheet + "!" + cell)
+                      None => Some(cell)
+                    }
+                  } else {
+                    None
+                  }
+                }
+                _ => None
+              }
+            } else {
+              None
+            }
+            match replacement {
+              Some(value) => {
+                out = out + formula[last:pos].to_owned() + value
+                last = end + 1
+              }
+              None => ()
+            }
+            search = end + 1
+          }
+          None => break
+        }
+      }
+      None => break
+    }
+  }
+  out + formula[last:].to_owned()
+}
+
+///|
+pub fn rewrite_dynamic_refs(
+  formula : StringView,
+  current_sheet : String,
+  _current_row : Int,
+) -> String raise @xlsx.XlsxError {
+  let indirect = rewrite_indirect(formula, current_sheet)
+  rewrite_offset(indirect, current_sheet)
+}

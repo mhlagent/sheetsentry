@@ -267,7 +267,7 @@ test "slice preserves target value" {
   let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
   let sliced = @mbtexcel.read(result.data)
   let target = sliced.sheet("Summary").unwrap().get_cell("B3")
-  assert_eq(target, Some("660"))
+  assert_eq(target, Some("539"))
 }
 
 ///|
@@ -432,7 +432,9 @@ test "multi-target verification" {
   let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
   assert_true(verification.verified)
   assert_true(verification.hash_verified)
+  assert_true(verification.calc_verified)
   assert_eq(verification.targets_verified, 2)
+  assert_eq(verification.targets_calc_verified, 2)
   assert_eq(verification.targets_total, 2)
 }
 
@@ -444,4 +446,39 @@ test "slice certificate html" {
   assert_true(html.contains("slice certificate"))
   assert_true(html.contains("Summary!B3"))
   assert_true(html.contains(result.manifest.slice_sha256))
+}
+
+///|
+test "slice recalculates independently" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let sliced = @mbtexcel.read(result.data)
+  let calculated = sliced.calc_cell_value("Summary", "B3", raw=true)
+  assert_eq(calculated, "539")
+}
+
+///|
+test "slice minimality metrics" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  assert_true(result.manifest.minimality_verified)
+  assert_true(result.manifest.total_used_cells > result.manifest.included_used_cells)
+  assert_true(result.manifest.excluded_used_cells > 0)
+  assert_eq(result.manifest.reduction_ratio, "\{result.manifest.included_used_cells}/\{result.manifest.total_used_cells}")
+}
+
+///|
+test "complex reference slices recalculate independently" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let structured = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B10", 20)
+  let named = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B11", 20)
+  let indirect = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B12", 20)
+  let offset = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B13", 20)
+  assert_true(structured.manifest.calc_verified)
+  assert_true(named.manifest.calc_verified)
+  assert_true(indirect.manifest.calc_verified)
+  assert_true(offset.manifest.calc_verified)
+  assert_eq(structured.manifest.targets[0].calculated, Some("640"))
+  assert_eq(named.manifest.targets[0].calculated, Some("2000"))
+  assert_eq(indirect.manifest.targets[0].calculated, Some("30"))
 }

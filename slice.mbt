@@ -9,7 +9,9 @@ pub(all) struct SliceTarget {
   target : String
   before : String?
   after : String?
+  calculated : String?
   verified : Bool
+  calc_verified : Bool
 }
 
 ///|
@@ -24,9 +26,15 @@ pub(all) struct SliceManifest {
   unresolved : Array[String]
   external_workbooks : Array[String]
   external_cells : Array[String]
+  total_used_cells : Int
+  included_used_cells : Int
+  excluded_used_cells : Int
+  reduction_ratio : String
+  minimality_verified : Bool
   target_value_before : String?
   target_value_after : String?
   verified : Bool
+  calc_verified : Bool
   complete : Bool
 }
 
@@ -225,6 +233,53 @@ pub fn slice_bytes_with_external(
 }
 
 ///|
+fn used_cell_count(workbook : @xlsx.Workbook) -> Int raise @xlsx.XlsxError {
+  let mut count = 0
+  for sheet_name in workbook.get_sheet_list() {
+    match workbook.sheet(sheet_name) {
+      Some(sheet) => {
+        let max_row = sheet.max_row()
+        let max_col = sheet.max_col()
+        for row in 1..=max_row {
+          for col in 1..=max_col {
+            let cell = @xlsx.coordinates_to_cell_name(col, row)
+            let formula = sheet.get_cell_formula(cell) catch { _ => None }
+            let value = sheet.get_cell(cell) catch { _ => None }
+            if formula is Some(_) || value is Some(_) {
+              count = count + 1
+            }
+          }
+        }
+      }
+      None => ()
+    }
+  }
+  count
+}
+
+///|
+fn included_used_cell_count(
+  source : @xlsx.Workbook,
+  nodes : Array[String],
+) -> Int {
+  let mut count = 0
+  for node in nodes {
+    let (sheet_name, cell) = cell_key_parts(node)
+    match source.sheet(sheet_name) {
+      Some(sheet) => {
+        let formula = sheet.get_cell_formula(cell) catch { _ => None }
+        let value = sheet.get_cell(cell) catch { _ => None }
+        if formula is Some(_) || value is Some(_) {
+          count = count + 1
+        }
+      }
+      None => ()
+    }
+  }
+  count
+}
+
+///|
 pub fn slice_bytes_many(
   source_bytes : Bytes,
   source_file : String,
@@ -249,6 +304,23 @@ pub fn slice_bytes_many(
     let (sheet, _) = cell_key_parts(node)
     if sheet != "" && !array_contains(sheets, sheet) {
       sheets.push(sheet)
+    }
+  }
+  let total_used = used_cell_count(source)
+  let included_used = included_used_cell_count(source, nodes)
+  let excluded_used = if total_used > included_used { total_used - included_used } else { 0 }
+  let reachable : Array[String] = []
+  for target in targets {
+    for node in trace_bytes(source_bytes, target, "precedents", max_depth) {
+      if !array_contains(reachable, node) {
+        reachable.push(node)
+      }
+    }
+  }
+  let mut minimality_verified = reachable.length() == nodes.length()
+  for node in nodes {
+    if !array_contains(reachable, node) {
+      minimality_verified = false
     }
   }
   let output = @mbtexcel.new_workbook()
@@ -282,19 +354,19 @@ pub fn slice_bytes_many(
     }
     let formula_override = match source_sheet.get_cell_formula(cell) {
       Some(formula) => {
-        let table_rewritten = rewrite_structured_refs(formula, sheet_name, row_of(cell), tables)
-        Some(
-          rewrite_with_external(
-            table_rewritten,
-            node,
-            output,
-            external_workbooks,
-            external_names,
-            external_cells,
-            unresolved,
-            ext_sheets,
-          ),
+        let external_rewritten = rewrite_with_external(
+          formula,
+          node,
+          output,
+          external_workbooks,
+          external_names,
+          external_cells,
+          unresolved,
+          ext_sheets,
         )
+        let dynamic_rewritten = rewrite_dynamic_refs(external_rewritten, sheet_name, row_of(cell))
+        let table_rewritten = rewrite_structured_refs(dynamic_rewritten, sheet_name, row_of(cell), tables)
+        Some(table_rewritten)
       }
       None => None
     }
@@ -373,14 +445,24 @@ pub fn slice_bytes_many(
       (Some(a), Some(b)) => a == b
       _ => false
     }
-    target_results.push({ target, before, after, verified })
+    let calculated = try {
+      Some(sliced.calc_cell_value(target_sheet, target_cell, raw=true))
+    } catch {
+      _ => None
+    }
+    let calc_verified = match (before, calculated) {
+      (Some(a), Some(b)) => a == b
+      _ => false
+    }
+    target_results.push({ target, before, after, calculated, verified, calc_verified })
   }
   let primary = if target_results.length() > 0 {
     target_results[0]
   } else {
-    { target: "", before: None, after: None, verified: false }
+    { target: "", before: None, after: None, calculated: None, verified: false, calc_verified: false }
   }
   let all_verified = target_results.length() > 0 && target_results.all(fn(item) { item.verified })
+  let all_calc_verified = target_results.length() > 0 && target_results.all(fn(item) { item.calc_verified })
   {
     data: slice_data,
     manifest: {
@@ -394,9 +476,15 @@ pub fn slice_bytes_many(
       unresolved,
       external_workbooks: external_names,
       external_cells,
+      total_used_cells: total_used,
+      included_used_cells: included_used,
+      excluded_used_cells: excluded_used,
+      reduction_ratio: included_used.to_string() + "/" + total_used.to_string(),
+      minimality_verified,
       target_value_before: primary.before,
       target_value_after: primary.after,
       verified: all_verified,
+      calc_verified: all_calc_verified,
       complete: unresolved.length() == 0,
     },
   }
@@ -418,7 +506,11 @@ pub fn slice_manifest_json(manifest : SliceManifest) -> String {
       Some(value) => "\"" + json_escape(value) + "\""
       None => "null"
     }
-    "{\"target\":\"" + json_escape(item.target) + "\",\"before\":" + before + ",\"after\":" + after + ",\"verified\":" + item.verified.to_string() + "}"
+    let calculated = match item.calculated {
+      Some(value) => "\"" + json_escape(value) + "\""
+      None => "null"
+    }
+    "{\"target\":\"" + json_escape(item.target) + "\",\"before\":" + before + ",\"after\":" + after + ",\"calculated\":" + calculated + ",\"verified\":" + item.verified.to_string() + ",\"calc_verified\":" + item.calc_verified.to_string() + "}"
   }).join(",") + "]"
   let before = match manifest.target_value_before {
     Some(value) => "\"" + json_escape(value) + "\""
@@ -428,7 +520,7 @@ pub fn slice_manifest_json(manifest : SliceManifest) -> String {
     Some(value) => "\"" + json_escape(value) + "\""
     None => "null"
   }
-  "{\"tool\":\"sheetsentry\",\"kind\":\"calculation-slice\",\"version\":\"\{tool_version()}\",\"source_file\":\"\{json_escape(manifest.source_file)}\",\"target\":\"\{json_escape(manifest.target)}\",\"targets\":\{targets},\"source_sha256\":\"\{manifest.source_sha256}\",\"slice_sha256\":\"\{manifest.slice_sha256}\",\"included_cells\":\{cells},\"included_sheets\":\{sheets},\"unresolved\":\{unresolved},\"external_workbooks\":\{external_workbooks},\"external_cells\":\{external_cells},\"target_value_before\":\{before},\"target_value_after\":\{after},\"verified\":\{manifest.verified},\"complete\":\{manifest.complete}}"
+  "{\"tool\":\"sheetsentry\",\"kind\":\"calculation-slice\",\"version\":\"\{tool_version()}\",\"source_file\":\"\{json_escape(manifest.source_file)}\",\"target\":\"\{json_escape(manifest.target)}\",\"targets\":\{targets},\"source_sha256\":\"\{manifest.source_sha256}\",\"slice_sha256\":\"\{manifest.slice_sha256}\",\"included_cells\":\{cells},\"included_sheets\":\{sheets},\"unresolved\":\{unresolved},\"external_workbooks\":\{external_workbooks},\"external_cells\":\{external_cells},\"total_used_cells\":\{manifest.total_used_cells},\"included_used_cells\":\{manifest.included_used_cells},\"excluded_used_cells\":\{manifest.excluded_used_cells},\"reduction_ratio\":\"\{manifest.reduction_ratio}\",\"minimality_verified\":\{manifest.minimality_verified},\"target_value_before\":\{before},\"target_value_after\":\{after},\"verified\":\{manifest.verified},\"calc_verified\":\{manifest.calc_verified},\"complete\":\{manifest.complete}}"
 }
 
 ///|
@@ -440,6 +532,8 @@ pub(all) struct SliceVerification {
   hash_verified : Bool
   targets_total : Int
   targets_verified : Int
+  targets_calc_verified : Int
+  calc_verified : Bool
   error : String?
 }
 
@@ -505,6 +599,7 @@ pub fn verify_slice_bytes(
   let actual_hash = hex_bytes(@crypto.sha256(slice_bytes))
   let hash_verified = expected_hash != "" && expected_hash == actual_hash
   let mut targets_verified = 0
+  let mut targets_calc_verified = 0
   let mut primary_target = ""
   let mut primary_before : String? = None
   let mut primary_after : String? = None
@@ -525,6 +620,18 @@ pub fn verify_slice_bytes(
       if verified {
         targets_verified = targets_verified + 1
       }
+      let calculated = try {
+        Some(workbook.calc_cell_value(sheet, cell, raw=true))
+      } catch {
+        _ => None
+      }
+      let calc_ok = match (before, calculated) {
+        (Some(a), Some(b)) => a == b
+        _ => false
+      }
+      if calc_ok {
+        targets_calc_verified = targets_calc_verified + 1
+      }
       if index == 0 {
         primary_target = target
         primary_before = before
@@ -535,6 +642,7 @@ pub fn verify_slice_bytes(
     _ => error = Some("failed to read slice workbook")
   }
   let verified = targets.length() > 0 && targets_verified == targets.length()
+  let calc_verified = targets.length() > 0 && targets_calc_verified == targets.length()
   {
     target: primary_target,
     before: primary_before,
@@ -543,6 +651,8 @@ pub fn verify_slice_bytes(
     hash_verified,
     targets_total: targets.length(),
     targets_verified,
+    targets_calc_verified,
+    calc_verified,
     error,
   }
 }
@@ -559,7 +669,11 @@ pub fn slice_report_html(manifest : SliceManifest) -> String {
       Some(value) => html_escape(value)
       None => "<missing>"
     }
-    target_rows = target_rows + "<tr><td>\{html_escape(item.target)}</td><td>\{before}</td><td>\{after}</td><td>\{item.verified}</td></tr>"
+    let calculated = match item.calculated {
+      Some(value) => html_escape(value)
+      None => "<failed>"
+    }
+    target_rows = target_rows + "<tr><td>\{html_escape(item.target)}</td><td>\{before}</td><td>\{after}</td><td>\{calculated}</td><td>\{item.verified}</td><td>\{item.calc_verified}</td></tr>"
   }
   let sheets = manifest.included_sheets.map(fn(x) { "<li>" + html_escape(x) + "</li>" }).join("")
   let unresolved = if manifest.unresolved.length() == 0 {
@@ -567,5 +681,5 @@ pub fn slice_report_html(manifest : SliceManifest) -> String {
   } else {
     "<ul>" + manifest.unresolved.map(fn(x) { "<li>" + html_escape(x) + "</li>" }).join("") + "</ul>"
   }
-  "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>SheetSentry slice certificate</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:32px;color:#1f2937;background:#f8fafc}h1{margin:0 0 6px}.meta{color:#64748b;margin-bottom:24px}.cards{display:flex;gap:12px;margin-bottom:24px}.card{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;min-width:120px}.card b{display:block;font-size:24px}table{width:100%;border-collapse:collapse;background:white;border:1px solid #e2e8f0;margin-bottom:20px}th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:13px}th{background:#f1f5f9}.ok{color:#15803d;font-weight:600}.bad{color:#dc2626;font-weight:600}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all}</style></head><body><h1>SheetSentry slice certificate</h1><div class=\"meta\">\{html_escape(manifest.source_file)} · target count \{manifest.targets.length()}</div><div class=\"cards\"><div class=\"card\"><b>\{manifest.included_cells.length()}</b>cells</div><div class=\"card\"><b>\{manifest.included_sheets.length()}</b>sheets</div><div class=\"card\"><b>\{manifest.external_workbooks.length()}</b>external</div><div class=\"card\"><b class=\"\{if manifest.verified { "ok" } else { "bad" }}\">\{manifest.verified}</b>verified</div><div class=\"card\"><b>\{manifest.complete}</b>complete</div></div><h2>Targets</h2><table><thead><tr><th>Target</th><th>Before</th><th>After</th><th>Verified</th></tr></thead><tbody>\{target_rows}</tbody></table><h2>Integrity</h2><table><tr><th>Source SHA-256</th><td><code>\{manifest.source_sha256}</code></td></tr><tr><th>Slice SHA-256</th><td><code>\{manifest.slice_sha256}</code></td></tr></table><h2>Included sheets</h2><ul>\{sheets}</ul><h2>Unresolved dependencies</h2>\{unresolved}</body></html>"
+  "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>SheetSentry slice certificate</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:32px;color:#1f2937;background:#f8fafc}h1{margin:0 0 6px}.meta{color:#64748b;margin-bottom:24px}.cards{display:flex;gap:12px;margin-bottom:24px}.card{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;min-width:120px}.card b{display:block;font-size:24px}table{width:100%;border-collapse:collapse;background:white;border:1px solid #e2e8f0;margin-bottom:20px}th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:13px}th{background:#f1f5f9}.ok{color:#15803d;font-weight:600}.bad{color:#dc2626;font-weight:600}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all}</style></head><body><h1>SheetSentry slice certificate</h1><div class=\"meta\">\{html_escape(manifest.source_file)} · target count \{manifest.targets.length()}</div><div class=\"cards\"><div class=\"card\"><b>\{manifest.included_cells.length()}</b>cells</div><div class=\"card\"><b>\{manifest.included_sheets.length()}</b>sheets</div><div class=\"card\"><b>\{manifest.external_workbooks.length()}</b>external</div><div class=\"card\"><b class=\"\{if manifest.verified { "ok" } else { "bad" }}\">\{manifest.verified}</b>verified</div><div class=\"card\"><b>\{manifest.complete}</b>complete</div></div><h2>Targets</h2><table><thead><tr><th>Target</th><th>Before</th><th>Cached after</th><th>Recalculated</th><th>Value verified</th><th>Calc verified</th></tr></thead><tbody>\{target_rows}</tbody></table><h2>Integrity</h2><table><tr><th>Source SHA-256</th><td><code>\{manifest.source_sha256}</code></td></tr><tr><th>Slice SHA-256</th><td><code>\{manifest.slice_sha256}</code></td></tr></table><h2>Included sheets</h2><ul>\{sheets}</ul><h2>Unresolved dependencies</h2>\{unresolved}</body></html>"
 }

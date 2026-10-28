@@ -57,12 +57,12 @@ def add_summary(wb, bad: bool):
     else:
         ws.write_formula("B2", "=Inputs!B2*(1+Inputs!B3)", None, 1030)
     ws.write("A3", "Total opex")
-    ws.write_formula("B3", "=SUM(Opex!C2:C6)", None, 660)
+    ws.write_formula("B3", "=SUM(Opex!C2:C6)", None, 539 if bad else 704)
     ws.write("A4", "Margin")
     if bad:
         ws.write_formula("B4", "=#REF!", None, "#REF!")
     else:
-        ws.write_formula("B4", "=B2-B3", None, 370)
+        ws.write_formula("B4", "=B2-B3", None, 326)
     ws.write("A5", "As of")
     if bad:
         ws.write_formula("B5", "=TODAY()", None, 46000)
@@ -78,7 +78,7 @@ def add_summary(wb, bad: bool):
         ws.write("A9", "Uncached formula")
         ws.write_formula("B9", "=1+1", None, 0)
         ws.write("A10", "Structured total")
-        ws.write_formula("B10", "=SUM(OpexTable[Amount])", None, 660)
+        ws.write_formula("B10", "=SUM(OpexTable[Amount])", None, 640)
         ws.write("A11", "Named input")
         ws.write_formula("B11", "=RevenueInput*2", None, 2000)
         ws.write("A12", "Indirect ref")
