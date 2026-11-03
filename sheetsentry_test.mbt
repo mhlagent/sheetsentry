@@ -517,3 +517,17 @@ test "complex workbook combined slice" {
   assert_true(result.manifest.complete)
   assert_eq(result.manifest.external_workbooks.length(), 1)
 }
+
+///|
+test "formula coverage slice recalculates" {
+  let bytes = @fs.read_file_to_bytes("fixtures/formula_coverage.xlsx")
+  let targets : Array[String] = []
+  for row in 2..=31 {
+    targets.push("Coverage!B\{row}")
+  }
+  let result = @sheetsentry.slice_bytes_many(bytes, "formula_coverage.xlsx", targets, 20, Map([]))
+  assert_eq(result.manifest.targets.length(), 30)
+  assert_true(result.manifest.verified)
+  assert_true(result.manifest.calc_verified)
+  assert_true(result.manifest.complete)
+}

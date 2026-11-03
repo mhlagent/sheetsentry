@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0
+
+- Add 30-case formula function coverage fixture.
+- Add independent cross-implementation checks using `formulas==1.3.4`.
+- Add formula/semantic compatibility documentation.
+- Expand tests to 72.
+
 ## 0.8.0
 
 - Add minimality detail lists: unreachable included, missing required, and excluded reachable.

@@ -28,3 +28,14 @@ jobs:
         run: |
           moon run --target native cmd/main -- audit fixtures/bad_model.xlsx --format json --out findings.json
           moon run --target native cmd/main -- audit fixtures/clean_model.xlsx --fail-on low
+      - name: Install independent formula engine
+        run: python3 -m pip install --quiet formulas==1.3.4
+      - name: Cross-check complex slice
+        run: |
+          moon run --target native cmd/main -- slice fixtures/bad_model.xlsx             --target "Summary!B3" --target "Summary!B10" --target "Summary!B11"             --target "Summary!B12" --target "Summary!B13" --target "Summary!B14"             --out /tmp/complex-slice.xlsx --manifest /tmp/complex-slice.json             --external external_book.xlsx=fixtures/external_book.xlsx
+          python3 scripts/crosscheck_formulas.py /tmp/complex-slice.xlsx /tmp/complex-slice.json
+      - name: Cross-check formula coverage
+        run: |
+          TARGETS=$(python3 -c 'print(",".join(f"Coverage!B{i}" for i in range(2,32)))')
+          moon run --target native cmd/main -- slice fixtures/formula_coverage.xlsx             --targets "$TARGETS" --out /tmp/coverage-slice.xlsx --manifest /tmp/coverage-slice.json
+          python3 scripts/crosscheck_formulas.py /tmp/coverage-slice.xlsx /tmp/coverage-slice.json

@@ -204,6 +204,8 @@ pub fn extract_refs(formula : StringView, current_sheet : StringView) -> Formula
               }
             } else if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '!' {
               // sheet prefix; the cell parser handles it
+            } else if name.to_upper() == "TRUE" || name.to_upper() == "FALSE" {
+              // boolean literal
             } else {
               let mut found = false
               for existing in names {
