@@ -29,7 +29,7 @@ jobs:
           moon run --target native cmd/main -- audit fixtures/bad_model.xlsx --format json --out findings.json
           moon run --target native cmd/main -- audit fixtures/clean_model.xlsx --fail-on low
       - name: Install independent formula engine
-        run: python3 -m pip install --quiet formulas==1.3.4
+        run: python3 -m pip install --quiet formulas==1.3.4 openpyxl
       - name: Cross-check complex slice
         run: |
           moon run --target native cmd/main -- slice fixtures/bad_model.xlsx             --target "Summary!B3" --target "Summary!B10" --target "Summary!B11"             --target "Summary!B12" --target "Summary!B13" --target "Summary!B14"             --out /tmp/complex-slice.xlsx --manifest /tmp/complex-slice.json             --external external_book.xlsx=fixtures/external_book.xlsx
