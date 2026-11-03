@@ -6,8 +6,8 @@ fn usage() -> Unit {
   println("  sheetsentry audit <file.xlsx> [--format terminal|json|sarif|html] [--out <path>] [--baseline <path>] [--write-baseline <path>] [--config <path>] [--min-severity high|medium|low] [--disable SS003,SS004] [--fail-on high|medium|low]")
   println("  sheetsentry trace <file.xlsx> --cell <Sheet!A1> [--direction precedents|dependents] [--depth 3]")
   println("  sheetsentry graph <file.xlsx> [--format dot|mermaid] [--out <path>]")
-  println("  sheetsentry slice <file.xlsx> --target <Sheet!A1> [--target <Sheet!B1>] --out <slice.xlsx> [--manifest <manifest.json>] [--report <certificate.html>] [--external book.xlsx=path] [--depth 20]")
-  println("  sheetsentry verify-slice <slice.xlsx> --manifest <manifest.json> [--source <source.xlsx>]")
+  println("  sheetsentry slice <file.xlsx> --target <Sheet!A1> [--target <Sheet!B1>] [--targets-file targets.txt] --out <slice.xlsx> [--manifest <manifest.json>] [--report <certificate.html>] [--external book.xlsx=path] [--strict] [--depth 20]")
+  println("  sheetsentry verify-slice <slice.xlsx> --manifest <manifest.json> [--source <source.xlsx>] [--strict]")
   println("  sheetsentry rules")
 }
 
@@ -177,6 +177,7 @@ fn run_slice(args : Array[String]) -> Unit {
   let mut out = ""
   let mut manifest_path = ""
   let mut report_path = ""
+  let mut strict = false
   let mut depth = 20
   let external_map : Map[String, Bytes] = Map([])
   let mut i = 3
@@ -189,6 +190,19 @@ fn run_slice(args : Array[String]) -> Unit {
         targets.push(target.to_owned())
       }
       i = i + 2
+    } else if args[i] == "--targets-file" && i + 1 < args.length() {
+      try {
+        let content = @fs.read_file_to_string(args[i + 1])
+        for target in @sheetsentry.parse_targets_file(content) {
+          targets.push(target)
+        }
+      } catch {
+        _ => println("sheetsentry: failed to read targets file \{args[i + 1]}")
+      }
+      i = i + 2
+    } else if args[i] == "--strict" {
+      strict = true
+      i = i + 1
     } else if args[i] == "--report" && i + 1 < args.length() {
       report_path = args[i + 1]
       i = i + 2
@@ -234,6 +248,9 @@ fn run_slice(args : Array[String]) -> Unit {
     }
     println("slice: \{targets.length()} target(s) -> \{out}")
     println("  cells: \{result.manifest.included_cells.length()}  sheets: \{result.manifest.included_sheets.length()}  used: \{result.manifest.reduction_ratio}  minimal: \{result.manifest.minimality_verified}  external: \{result.manifest.external_workbooks.length()}  verified: \{result.manifest.verified}  calc: \{result.manifest.calc_verified}  complete: \{result.manifest.complete}  unresolved: \{result.manifest.unresolved.length()}")
+    if strict && !(result.manifest.verified && result.manifest.calc_verified && result.manifest.complete && result.manifest.minimality_verified) {
+      @sys.exit(1)
+    }
   } catch {
     err => println("sheetsentry: \{err}")
   }
@@ -244,6 +261,7 @@ fn run_verify_slice(args : Array[String]) -> Unit {
   let slice_path = args[2]
   let mut manifest_path = ""
   let mut source_path = ""
+  let mut strict = false
   let mut i = 3
   while i < args.length() {
     if args[i] == "--manifest" && i + 1 < args.length() {
@@ -252,6 +270,9 @@ fn run_verify_slice(args : Array[String]) -> Unit {
     } else if args[i] == "--source" && i + 1 < args.length() {
       source_path = args[i + 1]
       i = i + 2
+    } else if args[i] == "--strict" {
+      strict = true
+      i = i + 1
     } else {
       i = i + 1
     }
@@ -285,6 +306,9 @@ fn run_verify_slice(args : Array[String]) -> Unit {
     }
     if result.error is Some(message) {
       println("  error: \{message}")
+    }
+    if strict && !(result.verified && result.calc_verified && result.hash_verified && result.minimality_verified && (source_path == "" || result.source_hash_verified)) {
+      @sys.exit(1)
     }
   } catch {
     err => println("sheetsentry: \{err}")

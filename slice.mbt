@@ -283,6 +283,18 @@ fn included_used_cell_count(
 }
 
 ///|
+pub fn parse_targets_file(text : String) -> Array[String] {
+  let result : Array[String] = []
+  for line in text.split("\n") {
+    let value = line.trim().to_owned()
+    if value != "" && !value.has_prefix("#") {
+      result.push(value)
+    }
+  }
+  result
+}
+
+///|
 pub fn slice_bytes_many(
   source_bytes : Bytes,
   source_file : String,
@@ -555,6 +567,7 @@ pub(all) struct SliceVerification {
   targets_calc_verified : Int
   calc_verified : Bool
   source_hash_verified : Bool
+  minimality_verified : Bool
   error : String?
 }
 
@@ -606,11 +619,16 @@ pub fn verify_slice_bytes(
 ) -> SliceVerification raise @json.ParseError {
   let value = @json.parse(manifest_text)
   let mut expected_hash = ""
+  let mut minimality_verified = false
   let mut targets : Array[(String, String?)] = []
   match value {
     Object(map) => {
       match map.get("slice_sha256") {
         Some(String(value)) => expected_hash = value
+        _ => ()
+      }
+      match map.get("minimality_verified") {
+        Some(True) => minimality_verified = true
         _ => ()
       }
       targets = manifest_targets(map)
@@ -675,6 +693,7 @@ pub fn verify_slice_bytes(
     targets_calc_verified,
     calc_verified,
     source_hash_verified: false,
+    minimality_verified,
     error,
   }
 }
@@ -709,6 +728,7 @@ pub fn verify_slice_with_source(
     targets_calc_verified: base.targets_calc_verified,
     calc_verified: base.calc_verified,
     source_hash_verified,
+    minimality_verified: base.minimality_verified,
     error: base.error,
   }
 }

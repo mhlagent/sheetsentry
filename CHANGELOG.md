@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0
+
+- Add `--targets-file` batch input.
+- Add `--strict` gates for slice generation and verification.
+- Expose minimality in verification output.
+- Expand tests to 74.
+
 ## 0.9.0
 
 - Add 30-case formula function coverage fixture.

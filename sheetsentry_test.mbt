@@ -531,3 +531,19 @@ test "formula coverage slice recalculates" {
   assert_true(result.manifest.calc_verified)
   assert_true(result.manifest.complete)
 }
+
+///|
+test "parse targets file" {
+  let targets = @sheetsentry.parse_targets_file("# comment\nSummary!B3\n\nSummary!B10\n")
+  assert_eq(targets.length(), 2)
+  assert_eq(targets[0], "Summary!B3")
+  assert_eq(targets[1], "Summary!B10")
+}
+
+///|
+test "verification exposes minimality" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
+  assert_true(verification.minimality_verified)
+}
