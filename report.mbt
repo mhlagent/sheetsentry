@@ -35,7 +35,9 @@ fn finding_json(f : Finding) -> String {
     Some(text) => "\"formula\":\"\{json_escape(text)}\""
     None => "\"formula\":null"
   }
-  let related = "[" + f.related.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
+  let related = "[" +
+    f.related.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") +
+    "]"
   "{\"rule_id\":\"\{f.rule_id}\",\"severity\":\"\{f.severity.label()}\",\"sheet\":\"\{json_escape(f.sheet)}\",\"cell\":\"\{json_escape(f.cell)}\",\{formula},\"message\":\"\{json_escape(f.message)}\",\"related\":\{related}}"
 }
 
@@ -43,7 +45,9 @@ fn finding_json(f : Finding) -> String {
 pub fn to_json(report : AuditReport) -> String {
   let findings = "[" + report.findings.map(finding_json).join(",") + "]"
   let suppressed = "[" + report.suppressed.map(finding_json).join(",") + "]"
-  let sheets = "[" + report.sheets.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
+  let sheets = "[" +
+    report.sheets.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") +
+    "]"
   "{\"tool\":\"sheetsentry\",\"version\":\"\{tool_version()}\",\"file\":\"\{json_escape(report.file)}\",\"sheets\":\{sheets},\"formula_cells\":\{report.formula_cells},\"findings\":\{findings},\"suppressed\":\{suppressed}}"
 }
 
@@ -61,7 +65,15 @@ fn sarif_result(f : Finding) -> String {
   let related = match f.related {
     [] => ""
     list => {
-      let refs = "[" + list.map(fn(x) { "{\"logicalLocations\":[{\"fullyQualifiedName\":\"" + json_escape(x) + "\"}]}" }).join(",") + "]"
+      let refs = "[" +
+        list
+        .map(fn(x) {
+          "{\"logicalLocations\":[{\"fullyQualifiedName\":\"" +
+          json_escape(x) +
+          "\"}]}"
+        })
+        .join(",") +
+        "]"
       ",\"relatedLocations\":\{refs}"
     }
   }
@@ -95,7 +107,7 @@ fn same_severity(a : Severity, b : Severity) -> Bool {
 }
 
 ///|
-fn count_severity(report : AuditReport, severity : Severity) -> Int {
+fn count_severity(report : AuditReport, severity : Severity) -> Int32 {
   let mut count = 0
   for finding in report.findings {
     if same_severity(finding.severity, severity) {
@@ -114,7 +126,8 @@ pub fn to_html(report : AuditReport) -> String {
       None => ""
     }
     let related = finding.related.map(fn(x) { html_escape(x) }).join(", ")
-    rows = rows + "<tr class=\"\{severity_class(finding.severity)}\" data-severity=\"\{finding.severity.label()}\" data-rule=\"\{finding.rule_id}\" data-sheet=\"\{html_escape(finding.sheet)}\"><td>\{finding.rule_id}</td><td>\{finding.severity.label()}</td><td>\{html_escape(finding.sheet)}!\{html_escape(finding.cell)}</td><td>\{html_escape(finding.message)}</td><td class=\"formula\">\{formula}</td><td>\{related}</td></tr>"
+    rows = rows +
+      "<tr class=\"\{severity_class(finding.severity)}\" data-severity=\"\{finding.severity.label()}\" data-rule=\"\{finding.rule_id}\" data-sheet=\"\{html_escape(finding.sheet)}\"><td>\{finding.rule_id}</td><td>\{finding.severity.label()}</td><td>\{html_escape(finding.sheet)}!\{html_escape(finding.cell)}</td><td>\{html_escape(finding.message)}</td><td class=\"formula\">\{formula}</td><td>\{related}</td></tr>"
   }
   let high = count_severity(report, High)
   let medium = count_severity(report, Medium)
@@ -126,10 +139,13 @@ pub fn to_html(report : AuditReport) -> String {
 ///|
 pub fn to_terminal(report : AuditReport) -> String {
   let mut out = "SheetSentry: \{report.file}\n"
-  out = out + "  sheets: \{report.sheets.length()}  formula cells: \{report.formula_cells}  findings: \{report.findings.length()}\n"
-  out = out + "  high: \{count_severity(report, High)}  medium: \{count_severity(report, Medium)}  low: \{count_severity(report, Low)}  suppressed: \{report.suppressed.length()}\n"
+  out = out +
+    "  sheets: \{report.sheets.length()}  formula cells: \{report.formula_cells}  findings: \{report.findings.length()}\n"
+  out = out +
+    "  high: \{count_severity(report, High)}  medium: \{count_severity(report, Medium)}  low: \{count_severity(report, Low)}  suppressed: \{report.suppressed.length()}\n"
   for finding in report.findings {
-    out = out + "  [\{finding.severity.label()}] \{finding.rule_id}  \{finding.sheet}!\{finding.cell}  \{finding.message}\n"
+    out = out +
+      "  [\{finding.severity.label()}] \{finding.rule_id}  \{finding.sheet}!\{finding.cell}  \{finding.message}\n"
   }
   if report.findings.length() == 0 {
     out = out + "  No findings.\n"

@@ -17,7 +17,12 @@ pub fn graph_to_dot(graph : DependencyGraph) -> String {
   for from, targets in graph.edges {
     out = out + "  \"" + dot_escape(from) + "\";\n"
     for target in targets {
-      out = out + "  \"" + dot_escape(from) + "\" -> \"" + dot_escape(target) + "\";\n"
+      out = out +
+        "  \"" +
+        dot_escape(from) +
+        "\" -> \"" +
+        dot_escape(target) +
+        "\";\n"
     }
   }
   out + "}\n"

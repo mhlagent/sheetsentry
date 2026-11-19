@@ -1,5 +1,7 @@
 ///|
-pub fn build_graph_bytes(bytes : Bytes) -> DependencyGraph raise @xlsx.XlsxError {
+pub fn build_graph_bytes(
+  bytes : Bytes,
+) -> DependencyGraph raise @xlsx.XlsxError {
   let workbook = @xlsx.read(bytes)
   let tables = table_catalog(bytes, workbook.get_sheet_list())
   let graph = DependencyGraph::new()
@@ -7,8 +9,8 @@ pub fn build_graph_bytes(bytes : Bytes) -> DependencyGraph raise @xlsx.XlsxError
     let sheet = workbook.sheet(name).unwrap()
     let max_row = sheet.max_row()
     let max_col = sheet.max_col()
-    for row in 1..=max_row {
-      for col in 1..=max_col {
+    for row in 1..<=max_row {
+      for col in 1..<=max_col {
         let cell = @xlsx.coordinates_to_cell_name(col, row)
         match sheet.get_cell_formula(cell) {
           Some(text) => {
@@ -24,8 +26,8 @@ pub fn build_graph_bytes(bytes : Bytes) -> DependencyGraph raise @xlsx.XlsxError
               let col_lo = if r.col < r.end_col { r.col } else { r.end_col }
               let col_hi = if r.col < r.end_col { r.end_col } else { r.col }
               let mut added = 0
-              for rr in row_lo..=row_hi {
-                for cc in col_lo..=col_hi {
+              for rr in row_lo..<=row_hi {
+                for cc in col_lo..<=col_hi {
                   if added < 500 {
                     add_edge(graph, key, node_key(target_sheet, rr, cc))
                     added = added + 1
@@ -47,7 +49,7 @@ pub fn trace_bytes(
   bytes : Bytes,
   start : String,
   direction : String,
-  max_depth : Int,
+  max_depth : Int32,
 ) -> Array[String] raise @xlsx.XlsxError {
   let graph = build_graph_bytes(bytes)
   let result : Array[String] = [start]

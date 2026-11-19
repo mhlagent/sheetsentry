@@ -23,7 +23,9 @@ test "audit bad model finds core rules" {
   let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
   println("findings=\{report.findings.length()}")
   for finding in report.findings {
-    println("\{finding.rule_id} \{finding.severity.label()} \{finding.sheet}!\{finding.cell} \{finding.message}")
+    println(
+      "\{finding.rule_id} \{finding.severity.label()} \{finding.sheet}!\{finding.cell} \{finding.message}",
+    )
   }
   assert_true(has_rule(report, "SS001"))
   assert_true(has_rule(report, "SS002"))
@@ -42,7 +44,9 @@ test "audit clean model has no findings" {
   let report = @sheetsentry.audit_bytes(bytes, "clean_model.xlsx")
   println("clean findings=\{report.findings.length()}")
   for finding in report.findings {
-    println("\{finding.rule_id} \{finding.sheet}!\{finding.cell} \{finding.message}")
+    println(
+      "\{finding.rule_id} \{finding.sheet}!\{finding.cell} \{finding.message}",
+    )
   }
   assert_eq(report.findings.length(), 0)
 }
@@ -149,7 +153,9 @@ test "default config" {
 
 ///|
 test "parse full config" {
-  let config = @sheetsentry.parse_config("{\"min_severity\":\"high\",\"disabled_rules\":[\"SS003\",\"SS004\"],\"ignore_cells\":[\"Summary!B2\"],\"fail_on\":\"high\"}")
+  let config = @sheetsentry.parse_config(
+    "{\"min_severity\":\"high\",\"disabled_rules\":[\"SS003\",\"SS004\"],\"ignore_cells\":[\"Summary!B2\"],\"fail_on\":\"high\"}",
+  )
   assert_eq(config.min_severity, "high")
   assert_eq(config.disabled_rules.length(), 2)
   assert_eq(config.ignore_cells[0], "Summary!B2")
@@ -175,7 +181,9 @@ test "parse empty object config" {
 test "apply config filters and ignores" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
-  let config = @sheetsentry.parse_config("{\"min_severity\":\"high\",\"disabled_rules\":[\"SS006\"],\"ignore_cells\":[\"Summary!B4\"]}")
+  let config = @sheetsentry.parse_config(
+    "{\"min_severity\":\"high\",\"disabled_rules\":[\"SS006\"],\"ignore_cells\":[\"Summary!B4\"]}",
+  )
   let filtered = @sheetsentry.apply_config(report, config)
   for finding in filtered.findings {
     assert_eq(finding.severity.label(), "high")
@@ -223,8 +231,14 @@ test "sarif includes all rules" {
 
 ///|
 test "severity rank ordering" {
-  assert_true(@sheetsentry.severity_rank(@sheetsentry.High) < @sheetsentry.severity_rank(@sheetsentry.Medium))
-  assert_true(@sheetsentry.severity_rank(@sheetsentry.Medium) < @sheetsentry.severity_rank(@sheetsentry.Low))
+  assert_true(
+    @sheetsentry.severity_rank(@sheetsentry.High) <
+    @sheetsentry.severity_rank(@sheetsentry.Medium),
+  )
+  assert_true(
+    @sheetsentry.severity_rank(@sheetsentry.Medium) <
+    @sheetsentry.severity_rank(@sheetsentry.Low),
+  )
 }
 
 ///|
@@ -252,7 +266,9 @@ test "trace depth zero returns start" {
 ///|
 test "slice includes only needed sheets" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   assert_eq(result.manifest.included_sheets.length(), 2)
@@ -264,7 +280,9 @@ test "slice includes only needed sheets" {
 ///|
 test "slice preserves target value" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   let sliced = @mbtexcel.read(result.data)
   let target = sliced.sheet("Summary").unwrap().get_cell("B3")
   assert_eq(target, Some("539"))
@@ -273,7 +291,9 @@ test "slice preserves target value" {
 ///|
 test "depth-limited slice is incomplete" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 0)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 0,
+  )
   assert_eq(result.manifest.included_cells.length(), 1)
   assert_false(result.manifest.complete)
   assert_true(result.manifest.unresolved.length() > 0)
@@ -282,7 +302,9 @@ test "depth-limited slice is incomplete" {
 ///|
 test "slice manifest json" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   let json = @sheetsentry.slice_manifest_json(result.manifest)
   assert_true(json.contains("\"kind\":\"calculation-slice\""))
   assert_true(json.contains("\"complete\":true"))
@@ -292,7 +314,9 @@ test "slice manifest json" {
 ///|
 test "slice hashes are sha256 length" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   assert_eq(result.manifest.source_sha256.length(), 64)
   assert_eq(result.manifest.slice_sha256.length(), 64)
   assert_true(result.manifest.source_sha256 != result.manifest.slice_sha256)
@@ -301,7 +325,9 @@ test "slice hashes are sha256 length" {
 ///|
 test "missing slice target is not verified" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Missing!A1", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Missing!A1", 20,
+  )
   assert_false(result.manifest.verified)
   assert_false(result.manifest.complete)
   assert_true(result.manifest.unresolved.length() > 0)
@@ -310,8 +336,13 @@ test "missing slice target is not verified" {
 ///|
 test "verify slice from manifest" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
-  let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
+  let verification = @sheetsentry.verify_slice_bytes(
+    result.data,
+    @sheetsentry.slice_manifest_json(result.manifest),
+  )
   assert_true(verification.verified)
   assert_eq(verification.target, "Summary!B3")
 }
@@ -319,7 +350,9 @@ test "verify slice from manifest" {
 ///|
 test "verify slice rejects changed expectation" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   let manifest = "{\"target\":\"Summary!B3\",\"target_value_before\":\"999\"}"
   let verification = @sheetsentry.verify_slice_bytes(result.data, manifest)
   assert_false(verification.verified)
@@ -341,7 +374,9 @@ test "table catalog from xlsx" {
 test "dynamic offset resolves" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let workbook = @xlsx.read(bytes)
-  let refs = @sheetsentry.dynamic_refs("=OFFSET(Inputs!B2,1,0)", "Summary", 13, workbook)
+  let refs = @sheetsentry.dynamic_refs(
+    "=OFFSET(Inputs!B2,1,0)", "Summary", 13, workbook,
+  )
   println("offset refs=\{refs.length()}")
   assert_eq(refs.length(), 1)
 }
@@ -349,7 +384,9 @@ test "dynamic offset resolves" {
 ///|
 test "structured reference slice is complete" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B10", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B10", 20,
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   let sliced = @mbtexcel.read(result.data)
@@ -360,7 +397,9 @@ test "structured reference slice is complete" {
 ///|
 test "named range slice preserves definition" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B11", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B11", 20,
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   let sliced = @mbtexcel.read(result.data)
@@ -376,7 +415,9 @@ test "named range slice preserves definition" {
 ///|
 test "indirect slice resolves literal reference" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B12", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B12", 20,
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   assert_true(result.manifest.included_cells.contains("Inputs!B3"))
@@ -385,7 +426,9 @@ test "indirect slice resolves literal reference" {
 ///|
 test "offset slice resolves constant offsets" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B13", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B13", 20,
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   assert_true(result.manifest.included_cells.contains("Inputs!B3"))
@@ -396,7 +439,9 @@ test "external workbook slice with mapping" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let external = @fs.read_file_to_bytes("fixtures/external_book.xlsx")
   let map : Map[String, Bytes] = Map([("external_book.xlsx", external)])
-  let result = @sheetsentry.slice_bytes_with_external(bytes, "bad_model.xlsx", "Summary!B14", 20, map)
+  let result = @sheetsentry.slice_bytes_with_external(
+    bytes, "bad_model.xlsx", "Summary!B14", 20, map,
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   assert_eq(result.manifest.external_workbooks.length(), 1)
@@ -409,7 +454,9 @@ test "external workbook slice with mapping" {
 ///|
 test "external workbook slice without mapping is incomplete" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B14", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B14", 20,
+  )
   assert_true(result.manifest.verified)
   assert_false(result.manifest.complete)
   assert_true(result.manifest.unresolved.length() > 0)
@@ -418,7 +465,13 @@ test "external workbook slice without mapping is incomplete" {
 ///|
 test "multi-target slice" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  let result = @sheetsentry.slice_bytes_many(
+    bytes,
+    "bad_model.xlsx",
+    ["Summary!B3", "Summary!B10"],
+    20,
+    Map([]),
+  )
   assert_true(result.manifest.verified)
   assert_true(result.manifest.complete)
   assert_eq(result.manifest.targets.length(), 2)
@@ -428,8 +481,17 @@ test "multi-target slice" {
 ///|
 test "multi-target verification" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
-  let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
+  let result = @sheetsentry.slice_bytes_many(
+    bytes,
+    "bad_model.xlsx",
+    ["Summary!B3", "Summary!B10"],
+    20,
+    Map([]),
+  )
+  let verification = @sheetsentry.verify_slice_bytes(
+    result.data,
+    @sheetsentry.slice_manifest_json(result.manifest),
+  )
   assert_true(verification.verified)
   assert_true(verification.hash_verified)
   assert_true(verification.calc_verified)
@@ -441,7 +503,9 @@ test "multi-target verification" {
 ///|
 test "slice certificate html" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   let html = @sheetsentry.slice_report_html(result.manifest)
   assert_true(html.contains("slice certificate"))
   assert_true(html.contains("Summary!B3"))
@@ -451,7 +515,9 @@ test "slice certificate html" {
 ///|
 test "slice recalculates independently" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
   let sliced = @mbtexcel.read(result.data)
   let calculated = sliced.calc_cell_value("Summary", "B3", raw=true)
   assert_eq(calculated, "539")
@@ -460,20 +526,39 @@ test "slice recalculates independently" {
 ///|
 test "slice minimality metrics" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  let result = @sheetsentry.slice_bytes_many(
+    bytes,
+    "bad_model.xlsx",
+    ["Summary!B3", "Summary!B10"],
+    20,
+    Map([]),
+  )
   assert_true(result.manifest.minimality_verified)
-  assert_true(result.manifest.total_used_cells > result.manifest.included_used_cells)
+  assert_true(
+    result.manifest.total_used_cells > result.manifest.included_used_cells,
+  )
   assert_true(result.manifest.excluded_used_cells > 0)
-  assert_eq(result.manifest.reduction_ratio, "\{result.manifest.included_used_cells}/\{result.manifest.total_used_cells}")
+  assert_eq(
+    result.manifest.reduction_ratio,
+    "\{result.manifest.included_used_cells}/\{result.manifest.total_used_cells}",
+  )
 }
 
 ///|
 test "complex reference slices recalculate independently" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let structured = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B10", 20)
-  let named = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B11", 20)
-  let indirect = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B12", 20)
-  let offset = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B13", 20)
+  let structured = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B10", 20,
+  )
+  let named = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B11", 20,
+  )
+  let indirect = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B12", 20,
+  )
+  let offset = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B13", 20,
+  )
   assert_true(structured.manifest.calc_verified)
   assert_true(named.manifest.calc_verified)
   assert_true(indirect.manifest.calc_verified)
@@ -486,7 +571,13 @@ test "complex reference slices recalculate independently" {
 ///|
 test "minimality detail lists are empty" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes_many(bytes, "bad_model.xlsx", ["Summary!B3", "Summary!B10"], 20, Map([]))
+  let result = @sheetsentry.slice_bytes_many(
+    bytes,
+    "bad_model.xlsx",
+    ["Summary!B3", "Summary!B10"],
+    20,
+    Map([]),
+  )
   assert_eq(result.manifest.unreachable_included.length(), 0)
   assert_eq(result.manifest.missing_required.length(), 0)
   assert_eq(result.manifest.excluded_reachable.length(), 0)
@@ -495,11 +586,17 @@ test "minimality detail lists are empty" {
 ///|
 test "source hash verification" {
   let source = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(source, "bad_model.xlsx", "Summary!B3", 20)
+  let result = @sheetsentry.slice_bytes(
+    source, "bad_model.xlsx", "Summary!B3", 20,
+  )
   let manifest = @sheetsentry.slice_manifest_json(result.manifest)
   let ok = @sheetsentry.verify_slice_with_source(source, result.data, manifest)
   assert_true(ok.source_hash_verified)
-  let wrong = @sheetsentry.verify_slice_with_source(@fs.read_file_to_bytes("fixtures/clean_model.xlsx"), result.data, manifest)
+  let wrong = @sheetsentry.verify_slice_with_source(
+    @fs.read_file_to_bytes("fixtures/clean_model.xlsx"),
+    result.data,
+    manifest,
+  )
   assert_false(wrong.source_hash_verified)
 }
 
@@ -508,8 +605,12 @@ test "complex workbook combined slice" {
   let source = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let external = @fs.read_file_to_bytes("fixtures/external_book.xlsx")
   let map : Map[String, Bytes] = Map([("external_book.xlsx", external)])
-  let targets = ["Summary!B3", "Summary!B10", "Summary!B11", "Summary!B12", "Summary!B13", "Summary!B14"]
-  let result = @sheetsentry.slice_bytes_many(source, "bad_model.xlsx", targets, 20, map)
+  let targets = [
+    "Summary!B3", "Summary!B10", "Summary!B11", "Summary!B12", "Summary!B13", "Summary!B14",
+  ]
+  let result = @sheetsentry.slice_bytes_many(
+    source, "bad_model.xlsx", targets, 20, map,
+  )
   assert_eq(result.manifest.targets.length(), 6)
   assert_true(result.manifest.verified)
   assert_true(result.manifest.calc_verified)
@@ -522,10 +623,16 @@ test "complex workbook combined slice" {
 test "formula coverage slice recalculates" {
   let bytes = @fs.read_file_to_bytes("fixtures/formula_coverage.xlsx")
   let targets : Array[String] = []
-  for row in 2..=31 {
+  for row in 2..<=31 {
     targets.push("Coverage!B\{row}")
   }
-  let result = @sheetsentry.slice_bytes_many(bytes, "formula_coverage.xlsx", targets, 20, Map([]))
+  let result = @sheetsentry.slice_bytes_many(
+    bytes,
+    "formula_coverage.xlsx",
+    targets,
+    20,
+    Map([]),
+  )
   assert_eq(result.manifest.targets.length(), 30)
   assert_true(result.manifest.verified)
   assert_true(result.manifest.calc_verified)
@@ -534,7 +641,9 @@ test "formula coverage slice recalculates" {
 
 ///|
 test "parse targets file" {
-  let targets = @sheetsentry.parse_targets_file("# comment\nSummary!B3\n\nSummary!B10\n")
+  let targets = @sheetsentry.parse_targets_file(
+    "# comment\nSummary!B3\n\nSummary!B10\n",
+  )
   assert_eq(targets.length(), 2)
   assert_eq(targets[0], "Summary!B3")
   assert_eq(targets[1], "Summary!B10")
@@ -543,7 +652,33 @@ test "parse targets file" {
 ///|
 test "verification exposes minimality" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
-  let result = @sheetsentry.slice_bytes(bytes, "bad_model.xlsx", "Summary!B3", 20)
-  let verification = @sheetsentry.verify_slice_bytes(result.data, @sheetsentry.slice_manifest_json(result.manifest))
+  let result = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
+  let verification = @sheetsentry.verify_slice_bytes(
+    result.data,
+    @sheetsentry.slice_manifest_json(result.manifest),
+  )
   assert_true(verification.minimality_verified)
+}
+
+///|
+test "verification exposes completeness" {
+  let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
+  let complete = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 20,
+  )
+  let complete_verification = @sheetsentry.verify_slice_bytes(
+    complete.data,
+    @sheetsentry.slice_manifest_json(complete.manifest),
+  )
+  assert_true(complete_verification.complete)
+  let truncated = @sheetsentry.slice_bytes(
+    bytes, "bad_model.xlsx", "Summary!B3", 0,
+  )
+  let truncated_verification = @sheetsentry.verify_slice_bytes(
+    truncated.data,
+    @sheetsentry.slice_manifest_json(truncated.manifest),
+  )
+  assert_false(truncated_verification.complete)
 }

@@ -20,7 +20,7 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.10.0` MVP, implemented in MoonBit. The current release supports:
+`0.10.1` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - calculation-slice extraction to a standalone `.xlsx`
@@ -83,10 +83,10 @@ Expected output:
 
 ```text
 SheetSentry: fixtures/bad_model.xlsx
-  sheets: 5  formula cells: 17  findings: 14
-  high: 4  medium: 7  low: 3
-  [medium] SS005  Opex!C6  Formula lives on a hidden row.
-  [medium] SS003  Summary!B2  Formula embeds numeric constant 1.05; prefer a named input cell.
+  sheets: 5  formula cells: 22  findings: 19
+  high: 4  medium: 10  low: 5
+  [high] SS006  Tax!C3  Circular reference detected.
+  [high] SS006  Tax!D3  Circular reference detected.
   [high] SS001  Summary!B4  Cell contains error value #REF!.
   ...
 ```
@@ -232,16 +232,15 @@ Tests cover:
 - reference extraction including quoted sheet names and absolute references;
 - function-name and numeric-literal extraction;
 - formula normalization across rows;
-- all ten audit rules on `fixtures/bad_model.xlsx`;
+- the rule engine and parser edge cases, including function names that resemble cell references;
 - a clean workbook with zero findings;
 - report rendering;
 - baseline round-trip and suppression;
 - severity and disabled-rule filters;
-- graph export;
-- rule catalog;
-- 74 tests in total.
+- graph export and rule catalog;
 - precedents and dependents tracing;
-- fail thresholds.
+- fail thresholds and CLI error exit codes;
+- 78 tests in total.
 
 Fixtures are generated reproducibly with:
 
@@ -254,18 +253,19 @@ The Python script is a test-data generator only; the analyzer itself is MoonBit.
 ## Limitations
 
 - XLSX only (no `.xls`, `.ods`, or Google Sheets yet).
-- Formula references are extracted statically; `INDIRECT` and `OFFSET` are reported but cannot be fully resolved.
-- Structured references (`Table1[Column]`) and external workbook links are not yet part of the dependency graph.
-- Cycle detection currently reports simple dependency cycles; complex strongly connected components are on the roadmap.
+- Literal `INDIRECT` and constant `OFFSET` are resolved. Computed `INDIRECT`, variable `OFFSET`, and other unresolved dynamic references make `complete=false`.
+- Supported table and external references are resolved and rewritten; unsupported forms are listed in `unresolved`.
+- Styles, charts, and macros are not fully preserved in slices.
+- Cycle detection reports deterministic cycle paths; full strongly connected component reporting remains future work.
 - The rule engine is heuristic. Use the rule catalog and CI thresholds to fit your team's conventions.
 
 ## Roadmap
 
-- Baseline file to suppress known findings and fail only on new ones.
-- More rules: orphan calculations, external links, merged cells in data regions, inconsistent units, over-long formulas.
-- Better cycle reporting with strongly connected components.
-- `--fix` for safe, deterministic rewrites.
-- WASM build so the report can run fully in a browser.
+- Computed `INDIRECT` and variable `OFFSET` resolution.
+- Full style, chart, and macro preservation in sliced workbooks.
+- Strongly connected component reporting for complex cycles.
+- `--fix` for safe, deterministic formula rewrites.
+- WASM build so reports and audits can run fully in a browser.
 
 ## License
 

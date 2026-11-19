@@ -1,14 +1,16 @@
 ///|
 pub(all) struct CellRef {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   sheet : String?
-  row : Int
-  col : Int
-  end_row : Int
-  end_col : Int
+  row : Int32
+  col : Int32
+  end_row : Int32
+  end_col : Int32
   abs_row : Bool
   abs_col : Bool
+  end_abs_row : Bool
+  end_abs_col : Bool
 }
 
 ///|
@@ -29,16 +31,17 @@ fn is_ident_char(c : Char) -> Bool {
 }
 
 ///|
-fn digits_to_int(chars : StringView) -> Int {
+fn digits_to_int(chars : StringView) -> Int32 {
   let mut value = 0
   for i in 0..<chars.length() {
-    value = value * 10 + (chars.get_char(i).unwrap_or('0').to_int() - '0'.to_int())
+    value = value * 10 +
+      (chars.get_char(i).unwrap_or('0').to_int() - '0'.to_int())
   }
   value
 }
 
 ///|
-fn column_number(letters : StringView) -> Int {
+fn column_number(letters : StringView) -> Int32 {
   let mut value = 0
   for i in 0..<letters.length() {
     let c = letters.get_char(i).unwrap_or('\u0000').to_ascii_uppercase()
@@ -50,7 +53,7 @@ fn column_number(letters : StringView) -> Int {
 ///|
 fn parse_cell_at(
   s : StringView,
-  start : Int,
+  start : Int32,
   current_sheet : String,
 ) -> CellRef? {
   let mut i = start
@@ -59,7 +62,8 @@ fn parse_cell_at(
     i = i + 1
   }
   let col_start = i
-  while i < s.length() && s.get_char(i).unwrap_or('\u0000').is_ascii_alphabetic() {
+  while i < s.length() &&
+        s.get_char(i).unwrap_or('\u0000').is_ascii_alphabetic() {
     i = i + 1
   }
   if i == col_start {
@@ -96,12 +100,18 @@ fn parse_cell_at(
         sheet = Some(s[k + 1:j - 1].to_owned())
       }
     } else {
-      while j > 0 && (is_ident_char(s.get_char(j - 1).unwrap_or('\u0000'))) {
+      while j > 0 && is_ident_char(s.get_char(j - 1).unwrap_or('\u0000')) {
         j = j - 1
       }
       if j < start - 1 {
         sheet = Some(s[j:start - 1].to_owned())
       }
+    }
+  }
+  if i < s.length() {
+    let next = s.get_char(i).unwrap_or('\u0000')
+    if next == '(' || next == '!' || next == '[' || is_ident_char(next) {
+      return None
     }
   }
   ignore(current_sheet)
@@ -115,11 +125,13 @@ fn parse_cell_at(
     end_col: col,
     abs_row,
     abs_col,
+    end_abs_row: abs_row,
+    end_abs_col: abs_col,
   })
 }
 
 ///|
-fn skip_string(s : StringView, start : Int) -> Int {
+fn skip_string(s : StringView, start : Int32) -> Int32 {
   let mut i = start + 1
   while i < s.length() {
     if s.get_char(i).unwrap_or('\u0000') == '"' {
@@ -136,7 +148,27 @@ fn skip_string(s : StringView, start : Int) -> Int {
 }
 
 ///|
-pub fn extract_refs(formula : StringView, current_sheet : StringView) -> FormulaRefs {
+fn skip_sheet_name(s : StringView, start : Int32) -> Int32 {
+  let mut i = start + 1
+  while i < s.length() {
+    if s.get_char(i).unwrap_or('\u0000') == '\'' {
+      if i + 1 < s.length() && s.get_char(i + 1).unwrap_or('\u0000') == '\'' {
+        i = i + 2
+      } else {
+        return i + 1
+      }
+    } else {
+      i = i + 1
+    }
+  }
+  i
+}
+
+///|
+pub fn extract_refs(
+  formula : StringView,
+  current_sheet : StringView,
+) -> FormulaRefs {
   let cells : Array[CellRef] = []
   let names : Array[String] = []
   let mut dynamic = false
@@ -151,7 +183,20 @@ pub fn extract_refs(formula : StringView, current_sheet : StringView) -> Formula
       i = i + 1
       while i < formula.length() {
         let d = formula.get_char(i).unwrap_or('\u0000')
-        if d == '!' || d == '?' || d.is_ascii_whitespace() || d == ')' || d == ',' || d == '+' || d == '-' || d == '*' || d == '/' || d == '^' || d == '&' || d == '<' || d == '>' || d == '=' {
+        if d == '!' ||
+          d == '?' ||
+          d.is_ascii_whitespace() ||
+          d == ')' ||
+          d == ',' ||
+          d == '+' ||
+          d == '-' ||
+          d == '*' ||
+          d == '/' ||
+          d == '^' ||
+          d == '&' ||
+          d == '<' ||
+          d == '>' ||
+          d == '=' {
           break
         }
         i = i + 1
@@ -164,7 +209,8 @@ pub fn extract_refs(formula : StringView, current_sheet : StringView) -> Formula
         Some(first) => {
           let mut last = first
           let mut next = first.end
-          if next < formula.length() && formula.get_char(next).unwrap_or('\u0000') == ':' {
+          if next < formula.length() &&
+            formula.get_char(next).unwrap_or('\u0000') == ':' {
             match parse_cell_at(formula, next + 1, current_sheet.to_owned()) {
               Some(second) => {
                 let merged_sheet = match first.sheet {
@@ -179,6 +225,8 @@ pub fn extract_refs(formula : StringView, current_sheet : StringView) -> Formula
                   end_col: second.col,
                   abs_row: first.abs_row,
                   abs_col: first.abs_col,
+                  end_abs_row: second.abs_row,
+                  end_abs_col: second.abs_col,
                   start: first.start,
                   end: second.end,
                 }
@@ -191,18 +239,21 @@ pub fn extract_refs(formula : StringView, current_sheet : StringView) -> Formula
           i = next
           continue
         }
-        None => {
+        None =>
           if is_ident_start(c) {
             let mut j = i + 1
-            while j < formula.length() && is_ident_char(formula.get_char(j).unwrap_or('\u0000')) {
+            while j < formula.length() &&
+                  is_ident_char(formula.get_char(j).unwrap_or('\u0000')) {
               j = j + 1
             }
             let name = formula[i:j].to_owned()
-            if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '(' {
+            if j < formula.length() &&
+              formula.get_char(j).unwrap_or('\u0000') == '(' {
               if name.to_upper() == "INDIRECT" || name.to_upper() == "OFFSET" {
                 dynamic = true
               }
-            } else if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '!' {
+            } else if j < formula.length() &&
+              formula.get_char(j).unwrap_or('\u0000') == '!' {
               // sheet prefix; the cell parser handles it
             } else if name.to_upper() == "TRUE" || name.to_upper() == "FALSE" {
               // boolean literal
@@ -220,12 +271,11 @@ pub fn extract_refs(formula : StringView, current_sheet : StringView) -> Formula
             i = j
             continue
           }
-        }
       }
     }
     i = i + 1
   }
-  { cells, names, dynamic }
+  { cells, names, dynamic, }
 }
 
 ///|
@@ -238,10 +288,15 @@ pub fn function_names(formula : StringView) -> Array[String] {
       i = skip_string(formula, i)
       continue
     }
+    if c == '\'' {
+      i = skip_sheet_name(formula, i)
+      continue
+    }
     if is_ident_start(c) {
       let start = i
       let mut j = i + 1
-      while j < formula.length() && is_ident_char(formula.get_char(j).unwrap_or('\u0000')) {
+      while j < formula.length() &&
+            is_ident_char(formula.get_char(j).unwrap_or('\u0000')) {
         j = j + 1
       }
       if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '(' {
@@ -265,7 +320,7 @@ pub fn function_names(formula : StringView) -> Array[String] {
 }
 
 ///|
-fn rel_ref(value : Int, base : Int, absolute : Bool) -> String {
+fn rel_ref(value : Int32, base : Int32, absolute : Bool) -> String {
   if absolute {
     value.to_string()
   } else {
@@ -277,8 +332,8 @@ fn rel_ref(value : Int, base : Int, absolute : Bool) -> String {
 pub fn normalize_formula(
   formula : StringView,
   current_sheet : StringView,
-  row : Int,
-  col : Int,
+  row : Int32,
+  col : Int32,
 ) -> String {
   let refs = extract_refs(formula, current_sheet)
   let mut out = ""
@@ -288,9 +343,17 @@ pub fn normalize_formula(
       continue
     }
     out = out + formula[last:r.start].to_owned()
-    out = out + "R" + rel_ref(r.row, row, r.abs_row) + "C" + rel_ref(r.col, col, r.abs_col)
+    out = out +
+      "R" +
+      rel_ref(r.row, row, r.abs_row) +
+      "C" +
+      rel_ref(r.col, col, r.abs_col)
     if r.end_row != r.row || r.end_col != r.col {
-      out = out + ":R" + rel_ref(r.end_row, row, false) + "C" + rel_ref(r.end_col, col, false)
+      out = out +
+        ":R" +
+        rel_ref(r.end_row, row, r.end_abs_row) +
+        "C" +
+        rel_ref(r.end_col, col, r.end_abs_col)
     }
     last = r.end
   }
@@ -308,6 +371,10 @@ pub fn numeric_literals(formula : StringView) -> Array[String] {
       i = skip_string(formula, i)
       continue
     }
+    if c == '\'' {
+      i = skip_sheet_name(formula, i)
+      continue
+    }
     let mut in_ref = false
     for r in refs.cells {
       if i >= r.start && i < r.end {
@@ -322,7 +389,10 @@ pub fn numeric_literals(formula : StringView) -> Array[String] {
     let mut preceded_by_identifier = false
     if c != '-' && start > 0 {
       let prev = formula.get_char(start - 1).unwrap_or('\u0000')
-      if prev.is_ascii_alphabetic() || prev.is_ascii_digit() || prev == '_' || prev == '.' {
+      if prev.is_ascii_alphabetic() ||
+        prev.is_ascii_digit() ||
+        prev == '_' ||
+        prev == '.' {
         preceded_by_identifier = true
       }
     }
@@ -330,19 +400,35 @@ pub fn numeric_literals(formula : StringView) -> Array[String] {
       i = i + 1
       continue
     }
-    if c == '-' && i + 1 < formula.length() && formula.get_char(i + 1).unwrap_or('\u0000').is_ascii_digit() {
+    if c == '-' &&
+      i + 1 < formula.length() &&
+      formula.get_char(i + 1).unwrap_or('\u0000').is_ascii_digit() {
       i = i + 1
     }
-    if i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
-      while i < formula.length() && (formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() || formula.get_char(i).unwrap_or('\u0000') == '.') {
+    if i < formula.length() &&
+      formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
+      while i < formula.length() &&
+            (
+              formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() ||
+              formula.get_char(i).unwrap_or('\u0000') == '.'
+            ) {
         i = i + 1
       }
-      if i < formula.length() && (formula.get_char(i).unwrap_or('\u0000') == 'E' || formula.get_char(i).unwrap_or('\u0000') == 'e') {
+      if i < formula.length() &&
+        (
+          formula.get_char(i).unwrap_or('\u0000') == 'E' ||
+          formula.get_char(i).unwrap_or('\u0000') == 'e'
+        ) {
         i = i + 1
-        if i < formula.length() && (formula.get_char(i).unwrap_or('\u0000') == '+' || formula.get_char(i).unwrap_or('\u0000') == '-') {
+        if i < formula.length() &&
+          (
+            formula.get_char(i).unwrap_or('\u0000') == '+' ||
+            formula.get_char(i).unwrap_or('\u0000') == '-'
+          ) {
           i = i + 1
         }
-        while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
+        while i < formula.length() &&
+              formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
           i = i + 1
         }
       }

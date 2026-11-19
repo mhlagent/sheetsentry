@@ -8,7 +8,7 @@ pub(all) struct AuditConfig {
 
 ///|
 pub fn default_config() -> AuditConfig {
-  { min_severity: "low", disabled_rules: [], ignore_cells: [], fail_on: "" }
+  { min_severity: "low", disabled_rules: [], ignore_cells: [], fail_on: "", }
 }
 
 ///|
@@ -28,7 +28,11 @@ fn json_string_array(map : Map[String, Json], key : String) -> Array[String] {
 }
 
 ///|
-fn json_string(map : Map[String, Json], key : String, fallback : String) -> String {
+fn json_string(
+  map : Map[String, Json],
+  key : String,
+  fallback : String,
+) -> String {
   match map.get(key) {
     Some(String(value)) => value
     _ => fallback
@@ -39,19 +43,24 @@ fn json_string(map : Map[String, Json], key : String, fallback : String) -> Stri
 pub fn parse_config(text : String) -> AuditConfig raise @json.ParseError {
   let value = @json.parse(text)
   match value {
-    Object(map) => {
-      min_severity: json_string(map, "min_severity", "low"),
-      disabled_rules: json_string_array(map, "disabled_rules"),
-      ignore_cells: json_string_array(map, "ignore_cells"),
-      fail_on: json_string(map, "fail_on", ""),
-    }
+    Object(map) =>
+      {
+        min_severity: json_string(map, "min_severity", "low"),
+        disabled_rules: json_string_array(map, "disabled_rules"),
+        ignore_cells: json_string_array(map, "ignore_cells"),
+        fail_on: json_string(map, "fail_on", ""),
+      }
     _ => default_config()
   }
 }
 
 ///|
 pub fn apply_config(report : AuditReport, config : AuditConfig) -> AuditReport {
-  let filtered = filter_report(report, config.min_severity, config.disabled_rules)
+  let filtered = filter_report(
+    report,
+    config.min_severity,
+    config.disabled_rules,
+  )
   let active : Array[Finding] = []
   let suppressed = filtered.suppressed
   for finding in filtered.findings {

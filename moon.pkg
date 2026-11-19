@@ -1,14 +1,14 @@
 import {
-  "moonbitlang/mbtexcel" @mbtexcel,
-  "moonbitlang/mbtexcel/xlsx" @xlsx,
-  "moonbitlang/core/json" @json,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/x/crypto" @crypto,
-  "moonbit-community/flate/zip" @zip,
+  "moonbitlang/mbtexcel",
+  "moonbitlang/mbtexcel/xlsx",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/crypto",
+  "moonbit-community/flate/zip",
 }
 
 import {
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/fs",
 } for "test"
 
 supported_targets = "native"

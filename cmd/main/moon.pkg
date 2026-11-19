@@ -1,10 +1,11 @@
 import {
-  "mhlagent/sheetsentry" @sheetsentry,
+  "mhlagent/sheetsentry",
   "moonbitlang/core/env",
-  "moonbitlang/x/sys" @sys,
-  "moonbitlang/core/string" @string,
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys",
+  "moonbitlang/core/string",
+  "moonbitlang/x/fs",
 }
 
 supported_targets = "native"
+
 pkgtype(kind: "executable")

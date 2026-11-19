@@ -1,0 +1,26 @@
+{
+  "slice": "multi_slice.xlsx",
+  "engine": "formulas",
+  "targets": 2,
+  "matched": 2,
+  "mismatched": 0,
+  "all_match": true,
+  "results": [
+    {
+      "target": "Summary!B3",
+      "manifest_before": "539",
+      "manifest_calculated": "539",
+      "formulas_value": "539",
+      "match_before": true,
+      "match_calculated": true
+    },
+    {
+      "target": "Summary!B10",
+      "manifest_before": "640",
+      "manifest_calculated": "640",
+      "formulas_value": "640",
+      "match_before": true,
+      "match_calculated": true
+    }
+  ]
+}

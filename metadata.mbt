@@ -2,15 +2,15 @@
 pub(all) struct TableInfo {
   name : String
   sheet : String
-  start_row : Int
-  start_col : Int
-  end_row : Int
-  end_col : Int
+  start_row : Int32
+  start_col : Int32
+  end_row : Int32
+  end_col : Int32
   columns : Array[String]
 }
 
 ///|
-fn find_sub(text : StringView, needle : StringView, start : Int) -> Int? {
+fn find_sub(text : StringView, needle : StringView, start : Int32) -> Int32? {
   let n = needle.length()
   if n == 0 {
     return Some(start)
@@ -46,7 +46,7 @@ fn xml_elements(xml : StringView, marker : String) -> Array[String] {
   let mut i = 0
   while i < xml.length() {
     match find_sub(xml, marker[:], i) {
-      Some(start) => {
+      Some(start) =>
         match find_sub(xml, ">", start) {
           Some(end) => {
             result.push(xml[start:end + 1].to_owned())
@@ -54,7 +54,6 @@ fn xml_elements(xml : StringView, marker : String) -> Array[String] {
           }
           None => break
         }
-      }
       None => break
     }
   }
@@ -73,7 +72,10 @@ fn normalize_zip_target(target : String) -> String {
 }
 
 ///|
-pub fn table_catalog(bytes : BytesView, sheets : Array[String]) -> Array[TableInfo] {
+pub fn table_catalog(
+  bytes : BytesView,
+  sheets : Array[String],
+) -> Array[TableInfo] {
   let result : Array[TableInfo] = []
   let archive = @zip.read(bytes) catch { _ => return result }
   for index, sheet_name in sheets {
@@ -150,7 +152,7 @@ pub fn table_catalog(bytes : BytesView, sheets : Array[String]) -> Array[TableIn
 }
 
 ///|
-pub fn table_column_index(table : TableInfo, column : String) -> Int? {
+pub fn table_column_index(table : TableInfo, column : String) -> Int32? {
   for index, name in table.columns {
     if name == column {
       return Some(index + 1)
@@ -162,7 +164,7 @@ pub fn table_column_index(table : TableInfo, column : String) -> Int? {
 ///|
 pub fn table_refs(
   formula : StringView,
-  current_row : Int,
+  current_row : Int32,
   tables : Array[TableInfo],
 ) -> Array[CellRef] {
   let result : Array[CellRef] = []
@@ -186,7 +188,9 @@ pub fn table_refs(
                 all_rows = true
               } else if column.has_prefix("[#Data],[") && column.has_suffix("]") {
                 column = column[9:column.length() - 1].to_owned()
-              } else if column.has_prefix("#Data") || column.has_prefix("#Headers") || column.has_prefix("#Totals") {
+              } else if column.has_prefix("#Data") ||
+                column.has_prefix("#Headers") ||
+                column.has_prefix("#Totals") {
                 column = ""
               }
               if all_rows || column == "" {
@@ -200,6 +204,8 @@ pub fn table_refs(
                   end_col: table.end_col,
                   abs_row: false,
                   abs_col: false,
+                  end_abs_row: false,
+                  end_abs_col: false,
                 })
               } else {
                 match table_column_index(table, column) {
@@ -220,6 +226,8 @@ pub fn table_refs(
                       end_col: col,
                       abs_row: false,
                       abs_col: false,
+                      end_abs_row: false,
+                      end_abs_col: false,
                     })
                   }
                   None => ()
@@ -246,7 +254,8 @@ pub fn named_refs(
   let result : Array[CellRef] = []
   for defined in workbook.get_defined_names() {
     if defined.name == name {
-      let scope = if defined.scope != "Workbook" && workbook.sheet(defined.scope) is Some(_) {
+      let scope = if defined.scope != "Workbook" &&
+        workbook.sheet(defined.scope) is Some(_) {
         defined.scope
       } else {
         current_sheet
@@ -261,7 +270,7 @@ pub fn named_refs(
 }
 
 ///|
-fn digit_value(c : Char) -> Int {
+fn digit_value(c : Char) -> Int32 {
   match c {
     '0' => 0
     '1' => 1
@@ -278,9 +287,10 @@ fn digit_value(c : Char) -> Int {
 }
 
 ///|
-fn parse_signed_int(text : StringView, start : Int) -> (Int, Int)? {
+fn parse_signed_int(text : StringView, start : Int32) -> (Int32, Int32)? {
   let mut i = start
-  while i < text.length() && text.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
+  while i < text.length() &&
+        text.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
     i = i + 1
   }
   let mut sign = 1
@@ -292,7 +302,8 @@ fn parse_signed_int(text : StringView, start : Int) -> (Int, Int)? {
   }
   let begin = i
   let mut value = 0
-  while i < text.length() && text.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
+  while i < text.length() &&
+        text.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
     value = value * 10 + digit_value(text.get_char(i).unwrap_or('0'))
     i = i + 1
   }
@@ -307,7 +318,7 @@ fn parse_signed_int(text : StringView, start : Int) -> (Int, Int)? {
 pub fn dynamic_refs(
   formula : StringView,
   current_sheet : String,
-  _current_row : Int,
+  _current_row : Int32,
   _workbook : @xlsx.Workbook,
 ) -> Array[CellRef] {
   let result : Array[CellRef] = []
@@ -317,16 +328,19 @@ pub fn dynamic_refs(
     match find_sub(upper, "INDIRECT(", search) {
       Some(pos) => {
         let mut i = pos + 9
-        while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
+        while i < formula.length() &&
+              formula.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
           i = i + 1
         }
-        if i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == '"' {
+        if i < formula.length() &&
+          formula.get_char(i).unwrap_or('\u0000') == '"' {
           let mut j = i + 1
           let mut content = ""
           while j < formula.length() {
             let c = formula.get_char(j).unwrap_or('\u0000')
             if c == '"' {
-              if j + 1 < formula.length() && formula.get_char(j + 1).unwrap_or('\u0000') == '"' {
+              if j + 1 < formula.length() &&
+                formula.get_char(j + 1).unwrap_or('\u0000') == '"' {
                 content = content + "\""
                 j = j + 2
               } else {
@@ -366,13 +380,15 @@ pub fn dynamic_refs(
         match base_refs.cells {
           [base, ..] => {
             let mut p = arg_end
-            if p < formula.length() && formula.get_char(p).unwrap_or('\u0000') == ',' {
+            if p < formula.length() &&
+              formula.get_char(p).unwrap_or('\u0000') == ',' {
               p = p + 1
             }
             match parse_signed_int(formula, p) {
               Some((rows, next)) => {
                 p = next
-                if p < formula.length() && formula.get_char(p).unwrap_or('\u0000') == ',' {
+                if p < formula.length() &&
+                  formula.get_char(p).unwrap_or('\u0000') == ',' {
                   p = p + 1
                 }
                 match parse_signed_int(formula, p) {
@@ -390,6 +406,8 @@ pub fn dynamic_refs(
                         end_col: col,
                         abs_row: false,
                         abs_col: false,
+                        end_abs_row: false,
+                        end_abs_col: false,
                       })
                     }
                   }
@@ -415,7 +433,7 @@ pub fn resolve_formula_cells(
   tables : Array[TableInfo],
   sheet : String,
   formula : StringView,
-  row : Int,
+  row : Int32,
 ) -> Array[CellRef] {
   let refs = extract_refs(formula, sheet)
   let externals = external_refs(formula)
@@ -471,21 +489,24 @@ pub fn resolve_formula_cells(
 ///|
 fn absolute_range(
   sheet : String,
-  start_row : Int,
-  start_col : Int,
-  end_row : Int,
-  end_col : Int,
+  start_row : Int32,
+  start_col : Int32,
+  end_row : Int32,
+  end_col : Int32,
   current_sheet : String,
 ) -> String raise @xlsx.XlsxError {
   let prefix = if sheet == current_sheet { "" } else { sheet + "!" }
-  prefix + @xlsx.coordinates_to_cell_name(start_col, start_row, abs=true) + ":" + @xlsx.coordinates_to_cell_name(end_col, end_row, abs=true)
+  prefix +
+  @xlsx.coordinates_to_cell_name(start_col, start_row, abs=true) +
+  ":" +
+  @xlsx.coordinates_to_cell_name(end_col, end_row, abs=true)
 }
 
 ///|
 pub fn rewrite_structured_refs(
   formula : StringView,
   current_sheet : String,
-  current_row : Int,
+  current_row : Int32,
   tables : Array[TableInfo],
 ) -> String raise @xlsx.XlsxError {
   let mut out = ""
@@ -519,7 +540,8 @@ pub fn rewrite_structured_refs(
               } else if column.has_prefix("#Data") {
                 column = ""
               }
-              let replacement = if all_rows || (column == "" && !headers && !totals) {
+              let replacement = if all_rows ||
+                (column == "" && !headers && !totals) {
                 Some(
                   absolute_range(
                     table.sheet,
@@ -535,13 +557,49 @@ pub fn rewrite_structured_refs(
                   Some(column_index) => {
                     let col = table.start_col + column_index - 1
                     if headers {
-                      Some(absolute_range(table.sheet, table.start_row, col, table.start_row, col, current_sheet))
+                      Some(
+                        absolute_range(
+                          table.sheet,
+                          table.start_row,
+                          col,
+                          table.start_row,
+                          col,
+                          current_sheet,
+                        ),
+                      )
                     } else if totals {
-                      Some(absolute_range(table.sheet, table.end_row, col, table.end_row, col, current_sheet))
+                      Some(
+                        absolute_range(
+                          table.sheet,
+                          table.end_row,
+                          col,
+                          table.end_row,
+                          col,
+                          current_sheet,
+                        ),
+                      )
                     } else if at_row {
-                      Some(absolute_range(table.sheet, current_row, col, current_row, col, current_sheet))
+                      Some(
+                        absolute_range(
+                          table.sheet,
+                          current_row,
+                          col,
+                          current_row,
+                          col,
+                          current_sheet,
+                        ),
+                      )
                     } else {
-                      Some(absolute_range(table.sheet, table.start_row + 1, col, table.end_row, col, current_sheet))
+                      Some(
+                        absolute_range(
+                          table.sheet,
+                          table.start_row + 1,
+                          col,
+                          table.end_row,
+                          col,
+                          current_sheet,
+                        ),
+                      )
                     }
                   }
                   None => None
@@ -585,10 +643,10 @@ pub fn is_table_symbol(tables : Array[TableInfo], name : String) -> Bool {
 pub(all) struct ExternalRef {
   workbook : String
   sheet : String
-  row : Int
-  col : Int
-  start : Int
-  end : Int
+  row : Int32
+  col : Int32
+  start : Int32
+  end : Int32
 }
 
 ///|
@@ -601,7 +659,9 @@ pub fn external_refs(formula : StringView) -> Array[ExternalRef] {
         Some(bracket_end) => {
           let workbook = formula[i + 1:bracket_end].to_owned()
           let lower = workbook.to_lower()
-          if lower.has_suffix(".xlsx") || lower.has_suffix(".xlsm") || lower.has_suffix(".xls") {
+          if lower.has_suffix(".xlsx") ||
+            lower.has_suffix(".xlsm") ||
+            lower.has_suffix(".xls") {
             let rest_start = bracket_end + 1
             let rest = formula[rest_start:]
             let refs = extract_refs(rest, "")
@@ -646,16 +706,19 @@ fn rewrite_indirect(formula : StringView, current_sheet : String) -> String {
     match find_sub(upper, "INDIRECT(", search) {
       Some(pos) => {
         let mut i = pos + 9
-        while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
+        while i < formula.length() &&
+              formula.get_char(i).unwrap_or('\u0000').is_ascii_whitespace() {
           i = i + 1
         }
-        if i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == '"' {
+        if i < formula.length() &&
+          formula.get_char(i).unwrap_or('\u0000') == '"' {
           let mut j = i + 1
           let mut content = ""
           while j < formula.length() {
             let c = formula.get_char(j).unwrap_or('\u0000')
             if c == '"' {
-              if j + 1 < formula.length() && formula.get_char(j + 1).unwrap_or('\u0000') == '"' {
+              if j + 1 < formula.length() &&
+                formula.get_char(j + 1).unwrap_or('\u0000') == '"' {
                 content = content + "\""
                 j = j + 2
               } else {
@@ -688,18 +751,21 @@ fn rewrite_indirect(formula : StringView, current_sheet : String) -> String {
 }
 
 ///|
-fn rewrite_offset(formula : StringView, current_sheet : String) -> String raise @xlsx.XlsxError {
+fn rewrite_offset(
+  formula : StringView,
+  current_sheet : String,
+) -> String raise @xlsx.XlsxError {
   let upper = formula.to_owned().to_upper()
   let mut out = ""
   let mut last = 0
   let mut search = 0
   while true {
     match find_sub(upper, "OFFSET(", search) {
-      Some(pos) => {
+      Some(pos) =>
         match find_sub(formula, ")", pos + 7) {
           Some(end) => {
             let args = formula[pos + 7:end]
-            let commas : Array[Int] = []
+            let commas : Array[Int32] = []
             let mut i = 0
             while i < args.length() {
               if args.get_char(i).unwrap_or('\u0000') == ',' {
@@ -743,7 +809,6 @@ fn rewrite_offset(formula : StringView, current_sheet : String) -> String raise 
           }
           None => break
         }
-      }
       None => break
     }
   }
@@ -754,7 +819,7 @@ fn rewrite_offset(formula : StringView, current_sheet : String) -> String raise 
 pub fn rewrite_dynamic_refs(
   formula : StringView,
   current_sheet : String,
-  _current_row : Int,
+  _current_row : Int32,
 ) -> String raise @xlsx.XlsxError {
   let indirect = rewrite_indirect(formula, current_sheet)
   rewrite_offset(indirect, current_sheet)

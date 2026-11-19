@@ -1,6 +1,8 @@
 ///|
 test "extract refs and dynamic functions" {
-  let refs = extract_refs("=SUM(Opex!C2:C6)+$B$2*1.05+INDIRECT(\"A1\")", "Summary")
+  let refs = extract_refs(
+    "=SUM(Opex!C2:C6)+$B$2*1.05+INDIRECT(\"A1\")", "Summary",
+  )
   assert_eq(refs.cells.length(), 2)
   assert_eq(refs.cells[0].sheet, Some("Opex"))
   assert_eq(refs.cells[0].row, 2)
@@ -156,4 +158,33 @@ test "whole axis detection" {
 test "external link detection" {
   assert_eq(external_link("='[Book2.xlsx]Sheet1'!A1"), Some("Book2.xlsx"))
   assert_eq(external_link("=A1+B2"), None)
+}
+
+///|
+test "functions ending in digits are not cell references" {
+  let refs = extract_refs(
+    "=LOG10(A1)+ATAN2(B1,1)+SUMX2MY2(C1:C3,D1:D3)", "Sheet1",
+  )
+  assert_eq(refs.cells.length(), 4)
+  assert_eq(refs.cells[0].row, 1)
+  assert_eq(refs.cells[0].col, 1)
+  assert_eq(refs.names.length(), 0)
+  let names = function_names("=LOG10(A1)+ATAN2(B1,1)+SUMX2MY2(C1:C3,D1:D3)")
+  assert_eq(names.length(), 3)
+  assert_eq(names[0], "LOG10")
+  assert_eq(names[1], "ATAN2")
+  assert_eq(names[2], "SUMX2MY2")
+}
+
+///|
+test "absolute range endpoints stay absolute when normalized" {
+  let normalized = normalize_formula("=SUM($A$1:$B$2)", "Sheet1", 5, 5)
+  assert_true(normalized.contains("R1C1:R2C2"))
+}
+
+///|
+test "numeric literals skip quoted sheet names" {
+  let nums = numeric_literals("='2026 Sheet'!A1+2")
+  assert_eq(nums.length(), 1)
+  assert_eq(nums[0], "2")
 }

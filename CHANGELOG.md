@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.1
+
+- Update formatting and type declarations for MoonBit 0.10.20.
+- Reject function names such as `LOG10` and `ATAN2` as false cell references.
+- Preserve absolute flags on both range endpoints during formula normalization.
+- Ignore quoted sheet-name digits in numeric-literal analysis.
+- Return non-zero CLI exits for invalid arguments and file errors.
+- Make `verify-slice --strict` require `complete=true`.
+- Add reproducible release examples and CLI failure-mode tests.
+- Expand tests to 78.
+
 ## 0.10.0
 
 - Add `--targets-file` batch input.

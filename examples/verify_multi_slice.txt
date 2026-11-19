@@ -1,0 +1,4 @@
+verify-slice: Summary!B3
+  before: 539  after: 539  verified: true
+  targets: 2/2  recalculated: 2/2  slice_sha256: true  complete: true
+  source_sha256: true

@@ -1,8 +1,8 @@
 ///|
 pub(all) struct WorkbookSummary {
   sheets : Array[String]
-  formula_cells : Int
-  stored_cells : Int
+  formula_cells : Int32
+  stored_cells : Int32
 }
 
 ///|
@@ -16,8 +16,8 @@ pub fn summarize_bytes(bytes : Bytes) -> WorkbookSummary raise @xlsx.XlsxError {
     let max_row = sheet.max_row()
     let max_col = sheet.max_col()
     stored_cells = stored_cells + sheet.stored_cell_count()
-    for row in 1..=max_row {
-      for col in 1..=max_col {
+    for row in 1..<=max_row {
+      for col in 1..<=max_col {
         let reference = @xlsx.coordinates_to_cell_name(col, row)
         match sheet.get_cell_formula(reference) {
           Some(_) => formula_cells = formula_cells + 1
@@ -26,5 +26,5 @@ pub fn summarize_bytes(bytes : Bytes) -> WorkbookSummary raise @xlsx.XlsxError {
       }
     }
   }
-  { sheets: names, formula_cells, stored_cells }
+  { sheets: names, formula_cells, stored_cells, }
 }

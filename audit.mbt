@@ -7,7 +7,7 @@ pub(all) enum Severity {
 
 ///|
 pub fn tool_version() -> String {
-  "0.10.0"
+  "0.10.1"
 }
 
 ///|
@@ -34,7 +34,7 @@ pub(all) struct Finding {
 pub(all) struct AuditReport {
   file : String
   sheets : Array[String]
-  formula_cells : Int
+  formula_cells : Int32
   findings : Array[Finding]
   suppressed : Array[Finding]
 }
@@ -49,11 +49,15 @@ fn make_finding(
   message : String,
   related : Array[String],
 ) -> Finding {
-  { rule_id, severity, sheet, cell, formula, message, related }
+  { rule_id, severity, sheet, cell, formula, message, related, }
 }
 
 ///|
-fn node_key(sheet : String, row : Int, col : Int) -> String raise @xlsx.XlsxError {
+fn node_key(
+  sheet : String,
+  row : Int32,
+  col : Int32,
+) -> String raise @xlsx.XlsxError {
   "\{sheet}!\{@xlsx.coordinates_to_cell_name(col, row)}"
 }
 
@@ -91,7 +95,7 @@ fn add_edge(graph : DependencyGraph, from : String, to : String) -> Unit {
 
 ///|
 pub fn DependencyGraph::new() -> DependencyGraph {
-  { edges: Map([]), reverse: Map([]) }
+  { edges: Map([]), reverse: Map([]), }
 }
 
 ///|
@@ -102,7 +106,14 @@ fn is_error_text(value : String) -> Bool {
 ///|
 fn is_volatile(name : String) -> Bool {
   match name {
-    "NOW" | "TODAY" | "RAND" | "RANDBETWEEN" | "OFFSET" | "INDIRECT" | "INFO" | "CELL" => true
+    "NOW"
+    | "TODAY"
+    | "RAND"
+    | "RANDBETWEEN"
+    | "OFFSET"
+    | "INDIRECT"
+    | "INFO"
+    | "CELL" => true
     _ => false
   }
 }
@@ -130,7 +141,7 @@ fn dfs_cycle_to(
   start : String,
   node : String,
   graph : DependencyGraph,
-  colors : Map[String, Int],
+  colors : Map[String, Int32],
   stack : Array[String],
   found : Array[Array[String]],
 ) -> Bool {
@@ -160,7 +171,7 @@ fn dfs_cycle_to(
 
 ///|
 fn find_cycle_from(graph : DependencyGraph, start : String) -> Array[String]? {
-  let colors : Map[String, Int] = Map([])
+  let colors : Map[String, Int32] = Map([])
   let stack : Array[String] = []
   let found : Array[Array[String]] = []
   ignore(dfs_cycle_to(start, start, graph, colors, stack, found))
@@ -192,19 +203,28 @@ fn has_whole_axis_ref(formula : StringView) -> Bool {
       if c == '$' {
         i = i + 1
       }
-      while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_alphabetic() {
+      while i < formula.length() &&
+            formula.get_char(i).unwrap_or('\u0000').is_ascii_alphabetic() {
         i = i + 1
       }
-      if i > start && i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == ':' {
+      if i > start &&
+        i < formula.length() &&
+        formula.get_char(i).unwrap_or('\u0000') == ':' {
         let mut j = i + 1
-        if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '$' {
+        if j < formula.length() &&
+          formula.get_char(j).unwrap_or('\u0000') == '$' {
           j = j + 1
         }
         let letter_start = j
-        while j < formula.length() && formula.get_char(j).unwrap_or('\u0000').is_ascii_alphabetic() {
+        while j < formula.length() &&
+              formula.get_char(j).unwrap_or('\u0000').is_ascii_alphabetic() {
           j = j + 1
         }
-        if j > letter_start && (j == formula.length() || !formula.get_char(j).unwrap_or('\u0000').is_ascii_digit()) {
+        if j > letter_start &&
+          (
+            j == formula.length() ||
+            !formula.get_char(j).unwrap_or('\u0000').is_ascii_digit()
+          ) {
           return true
         }
       }
@@ -213,16 +233,21 @@ fn has_whole_axis_ref(formula : StringView) -> Bool {
       if c == '$' {
         i = i + 1
       }
-      while i < formula.length() && formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
+      while i < formula.length() &&
+            formula.get_char(i).unwrap_or('\u0000').is_ascii_digit() {
         i = i + 1
       }
-      if i > start && i < formula.length() && formula.get_char(i).unwrap_or('\u0000') == ':' {
+      if i > start &&
+        i < formula.length() &&
+        formula.get_char(i).unwrap_or('\u0000') == ':' {
         let mut j = i + 1
-        if j < formula.length() && formula.get_char(j).unwrap_or('\u0000') == '$' {
+        if j < formula.length() &&
+          formula.get_char(j).unwrap_or('\u0000') == '$' {
           j = j + 1
         }
         let digit_start = j
-        while j < formula.length() && formula.get_char(j).unwrap_or('\u0000').is_ascii_digit() {
+        while j < formula.length() &&
+              formula.get_char(j).unwrap_or('\u0000').is_ascii_digit() {
           j = j + 1
         }
         if j > digit_start {
@@ -242,13 +267,16 @@ fn external_link(formula : StringView) -> String? {
     let c = formula.get_char(i).unwrap_or('\u0000')
     if c == '[' {
       let mut j = i + 1
-      while j < formula.length() && formula.get_char(j).unwrap_or('\u0000') != ']' {
+      while j < formula.length() &&
+            formula.get_char(j).unwrap_or('\u0000') != ']' {
         j = j + 1
       }
       if j < formula.length() {
         let name = formula[i + 1:j].to_owned()
         let lower = name.to_lower()
-        if lower.has_suffix(".xlsx") || lower.has_suffix(".xlsm") || lower.has_suffix(".xls") {
+        if lower.has_suffix(".xlsx") ||
+          lower.has_suffix(".xlsm") ||
+          lower.has_suffix(".xls") {
           return Some(name)
         }
       }
@@ -263,17 +291,17 @@ fn collect_sheet_cells(
   workbook : @xlsx.Workbook,
   sheet_name : String,
   graph : DependencyGraph,
-  formula_cells : Int,
+  formula_cells : Int32,
   findings : Array[Finding],
-) -> Int raise @xlsx.XlsxError {
+) -> Int32 raise @xlsx.XlsxError {
   let sheet = workbook.sheet(sheet_name).unwrap()
   let hidden_sheet = !workbook.sheet_visible(sheet_name)
   let max_row = sheet.max_row()
   let max_col = sheet.max_col()
   let mut count = formula_cells
-  for row in 1..=max_row {
+  for row in 1..<=max_row {
     let hidden_row = !sheet.row_visible(row)
-    for col in 1..=max_col {
+    for col in 1..<=max_col {
       let cell = @xlsx.coordinates_to_cell_name(col, row)
       let formula = sheet.get_cell_formula(cell)
       let raw = sheet.get_cell_rc(row, col)
@@ -294,8 +322,8 @@ fn collect_sheet_cells(
             let col_lo = if r.col < r.end_col { r.col } else { r.end_col }
             let col_hi = if r.col < r.end_col { r.end_col } else { r.col }
             let mut added = 0
-            for rr in row_lo..=row_hi {
-              for cc in col_lo..=col_hi {
+            for rr in row_lo..<=row_hi {
+              for cc in col_lo..<=col_hi {
                 if added < max_cells {
                   add_edge(graph, key, node_key(target_sheet, rr, cc))
                   added = added + 1
@@ -303,7 +331,8 @@ fn collect_sheet_cells(
               }
             }
           }
-          if refs.dynamic && dynamic_refs(text, sheet_name, row, workbook).length() == 0 {
+          if refs.dynamic &&
+            dynamic_refs(text, sheet_name, row, workbook).length() == 0 {
             findings.push(
               make_finding(
                 "SS007",
@@ -317,7 +346,7 @@ fn collect_sheet_cells(
             )
           }
           match has_constant_literal(text) {
-            Some(value) => {
+            Some(value) =>
               findings.push(
                 make_finding(
                   "SS003",
@@ -329,7 +358,6 @@ fn collect_sheet_cells(
                   [],
                 ),
               )
-            }
             None => ()
           }
           for name in function_names(text) {
@@ -348,7 +376,7 @@ fn collect_sheet_cells(
             }
           }
           match external_link(text) {
-            Some(workbook) => {
+            Some(workbook) =>
               findings.push(
                 make_finding(
                   "SS008",
@@ -360,7 +388,6 @@ fn collect_sheet_cells(
                   [],
                 ),
               )
-            }
             None => ()
           }
           if has_whole_axis_ref(text) {
@@ -439,13 +466,13 @@ fn collect_sheet_cells(
 fn check_formula_line(
   sheet : String,
   kind : String,
-  position : Int,
-  list : Array[(Int, String, String)],
+  position : Int32,
+  list : Array[(Int32, String, String)],
   findings : Array[Finding],
 ) -> Unit {
   if list.length() >= 3 {
     list.sort_by(fn(a, b) { a.0 - b.0 })
-    let counts : Map[String, Int] = Map([])
+    let counts : Map[String, Int32] = Map([])
     for item in list {
       let normalized = item.2
       counts.set(normalized, counts.get_or_default(normalized, 0) + 1)
@@ -480,11 +507,11 @@ fn check_formula_line(
 ///|
 fn detect_formula_inconsistency(
   sheet : String,
-  formulas : Array[(Int, Int, String, String)],
+  formulas : Array[(Int32, Int32, String, String)],
   findings : Array[Finding],
 ) -> Unit {
-  let rows : Map[Int, Array[(Int, String, String)]] = Map([])
-  let cols : Map[Int, Array[(Int, String, String)]] = Map([])
+  let rows : Map[Int32, Array[(Int32, String, String)]] = Map([])
+  let cols : Map[Int32, Array[(Int32, String, String)]] = Map([])
   for item in formulas {
     let (row, col, cell, normalized) = item
     let row_list = rows.get_or_init(row, fn() { [] })
@@ -503,20 +530,25 @@ fn detect_formula_inconsistency(
 }
 
 ///|
-pub fn audit_bytes(bytes : Bytes, file : String) -> AuditReport raise @xlsx.XlsxError {
+pub fn audit_bytes(
+  bytes : Bytes,
+  file : String,
+) -> AuditReport raise @xlsx.XlsxError {
   let workbook = @xlsx.read(bytes)
   let sheets = workbook.get_sheet_list()
   let graph = DependencyGraph::new()
   let findings : Array[Finding] = []
   let mut formula_cells = 0
-  let normalized_formulas : Array[(Int, Int, String, String, String)] = []
+  let normalized_formulas : Array[(Int32, Int32, String, String, String)] = []
   for name in sheets {
-    formula_cells = collect_sheet_cells(workbook, name, graph, formula_cells, findings)
+    formula_cells = collect_sheet_cells(
+      workbook, name, graph, formula_cells, findings,
+    )
     guard workbook.sheet(name) is Some(sheet) else { continue }
     let max_row = sheet.max_row()
     let max_col = sheet.max_col()
-    for row in 1..=max_row {
-      for col in 1..=max_col {
+    for row in 1..<=max_row {
+      for col in 1..<=max_col {
         let cell = @xlsx.coordinates_to_cell_name(col, row)
         match sheet.get_cell_formula(cell) {
           Some(text) => {
@@ -529,7 +561,7 @@ pub fn audit_bytes(bytes : Bytes, file : String) -> AuditReport raise @xlsx.Xlsx
     }
   }
   // Group normalized formulas by sheet for row consistency checks.
-  let by_sheet : Map[String, Array[(Int, Int, String, String)]] = Map([])
+  let by_sheet : Map[String, Array[(Int32, Int32, String, String)]] = Map([])
   for item in normalized_formulas {
     let (row, col, sheet, cell, normalized) = item
     let list = by_sheet.get_or_init(sheet, fn() { [] })
@@ -572,11 +604,14 @@ pub fn audit_bytes(bytes : Bytes, file : String) -> AuditReport raise @xlsx.Xlsx
       a.cell.compare(b.cell)
     }
   })
-  { file, sheets, formula_cells, findings, suppressed: [] }
+  { file, sheets, formula_cells, findings, suppressed: [], }
 }
 
 ///|
-pub fn count_severity_public(report : AuditReport, severity : Severity) -> Int {
+pub fn count_severity_public(
+  report : AuditReport,
+  severity : Severity,
+) -> Int32 {
   let mut count = 0
   for finding in report.findings {
     let same = match (finding.severity, severity) {
@@ -596,15 +631,17 @@ pub fn count_severity_public(report : AuditReport, severity : Severity) -> Int {
 pub fn should_fail(report : AuditReport, threshold : String) -> Bool {
   match threshold {
     "high" => count_severity_public(report, High) > 0
-    "medium" => count_severity_public(report, High) + count_severity_public(report, Medium) > 0
+    "medium" =>
+      count_severity_public(report, High) +
+      count_severity_public(report, Medium) >
+      0
     "low" => report.findings.length() > 0
     _ => false
   }
 }
 
-
 ///|
-pub fn severity_rank(severity : Severity) -> Int {
+pub fn severity_rank(severity : Severity) -> Int32 {
   match severity {
     High => 0
     Medium => 1
@@ -618,7 +655,10 @@ pub fn finding_fingerprint(finding : Finding) -> String {
 }
 
 ///|
-pub fn apply_baseline(report : AuditReport, fingerprints : Array[String]) -> AuditReport {
+pub fn apply_baseline(
+  report : AuditReport,
+  fingerprints : Array[String],
+) -> AuditReport {
   let active : Array[Finding] = []
   let suppressed : Array[Finding] = []
   for finding in report.findings {

@@ -1,0 +1,18 @@
+{
+  "slice": "external_slice.xlsx",
+  "engine": "formulas",
+  "targets": 1,
+  "matched": 1,
+  "mismatched": 0,
+  "all_match": true,
+  "results": [
+    {
+      "target": "Summary!B14",
+      "manifest_before": "42",
+      "manifest_calculated": "42",
+      "formulas_value": "42",
+      "match_before": true,
+      "match_calculated": true
+    }
+  ]
+}

@@ -26,9 +26,9 @@ pub(all) struct SliceManifest {
   unresolved : Array[String]
   external_workbooks : Array[String]
   external_cells : Array[String]
-  total_used_cells : Int
-  included_used_cells : Int
-  excluded_used_cells : Int
+  total_used_cells : Int32
+  included_used_cells : Int32
+  excluded_used_cells : Int32
   reduction_ratio : String
   minimality_verified : Bool
   unreachable_included : Array[String]
@@ -42,8 +42,10 @@ pub(all) struct SliceManifest {
 }
 
 ///|
-fn hex_digit(value : Int) -> String {
-  let digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
+fn hex_digit(value : Int32) -> String {
+  let digits = [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
+  ]
   digits[value]
 }
 
@@ -92,16 +94,15 @@ fn copy_cell(
       // Read the cached value through the A1 API.
       let raw = source.get_cell(cell)
       match raw {
-        Some(value) => destination.set_cell_formula(cell, formula, value=value)
+        Some(value) => destination.set_cell_formula(cell, formula, value~)
         None => destination.set_cell_formula(cell, formula)
       }
     }
-    None => {
+    None =>
       match source.get_cell_value_raw(cell) {
         Some(value) => destination.set_cell_value(cell, value)
         None => ()
       }
-    }
   }
 }
 
@@ -192,7 +193,9 @@ fn rewrite_with_external(
             "'" + name + "'!" + cell
           }
           None => {
-            unresolved.push("external-cell:\{ext.workbook}!\{ext.sheet}!\{cell}")
+            unresolved.push(
+              "external-cell:\{ext.workbook}!\{ext.sheet}!\{cell}",
+            )
             formula[ext.start:ext.end].to_owned()
           }
         }
@@ -209,7 +212,7 @@ fn rewrite_with_external(
 }
 
 ///|
-fn row_of(cell : String) -> Int raise @xlsx.XlsxError {
+fn row_of(cell : String) -> Int32 raise @xlsx.XlsxError {
   let (_, row) = @xlsx.cell_name_to_coordinates(cell)
   row
 }
@@ -219,7 +222,7 @@ pub fn slice_bytes(
   source_bytes : Bytes,
   source_file : String,
   target : String,
-  max_depth : Int,
+  max_depth : Int32,
 ) -> SliceResult raise @xlsx.XlsxError {
   slice_bytes_many(source_bytes, source_file, [target], max_depth, Map([]))
 }
@@ -229,22 +232,30 @@ pub fn slice_bytes_with_external(
   source_bytes : Bytes,
   source_file : String,
   target : String,
-  max_depth : Int,
+  max_depth : Int32,
   external_workbooks : Map[String, Bytes],
 ) -> SliceResult raise @xlsx.XlsxError {
-  slice_bytes_many(source_bytes, source_file, [target], max_depth, external_workbooks)
+  slice_bytes_many(
+    source_bytes,
+    source_file,
+    [target],
+    max_depth,
+    external_workbooks,
+  )
 }
 
 ///|
-fn used_cell_keys(workbook : @xlsx.Workbook) -> Array[String] raise @xlsx.XlsxError {
+fn used_cell_keys(
+  workbook : @xlsx.Workbook,
+) -> Array[String] raise @xlsx.XlsxError {
   let result : Array[String] = []
   for sheet_name in workbook.get_sheet_list() {
     match workbook.sheet(sheet_name) {
       Some(sheet) => {
         let max_row = sheet.max_row()
         let max_col = sheet.max_col()
-        for row in 1..=max_row {
-          for col in 1..=max_col {
+        for row in 1..<=max_row {
+          for col in 1..<=max_col {
             let cell = @xlsx.coordinates_to_cell_name(col, row)
             let formula = sheet.get_cell_formula(cell) catch { _ => None }
             let value = sheet.get_cell(cell) catch { _ => None }
@@ -264,7 +275,7 @@ fn used_cell_keys(workbook : @xlsx.Workbook) -> Array[String] raise @xlsx.XlsxEr
 fn included_used_cell_count(
   source : @xlsx.Workbook,
   nodes : Array[String],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for node in nodes {
     let (sheet_name, cell) = cell_key_parts(node)
@@ -299,7 +310,7 @@ pub fn slice_bytes_many(
   source_bytes : Bytes,
   source_file : String,
   targets : Array[String],
-  max_depth : Int,
+  max_depth : Int32,
   external_workbooks : Map[String, Bytes],
 ) -> SliceResult raise @xlsx.XlsxError {
   let source = @xlsx.read(source_bytes)
@@ -324,7 +335,11 @@ pub fn slice_bytes_many(
   let used_keys = used_cell_keys(source)
   let total_used = used_keys.length()
   let included_used = included_used_cell_count(source, nodes)
-  let excluded_used = if total_used > included_used { total_used - included_used } else { 0 }
+  let excluded_used = if total_used > included_used {
+    total_used - included_used
+  } else {
+    0
+  }
   let reachable : Array[String] = []
   for target in targets {
     for node in trace_bytes(source_bytes, target, "precedents", max_depth) {
@@ -351,7 +366,10 @@ pub fn slice_bytes_many(
       excluded_reachable.push(cell)
     }
   }
-  let minimality_verified = targets.length() > 0 && unreachable_included.length() == 0 && missing_required.length() == 0 && excluded_reachable.length() == 0
+  let minimality_verified = targets.length() > 0 &&
+    unreachable_included.length() == 0 &&
+    missing_required.length() == 0 &&
+    excluded_reachable.length() == 0
   let output = @mbtexcel.new_workbook()
   for sheet_name in sheets {
     ignore(output.add_sheet(sheet_name))
@@ -384,17 +402,20 @@ pub fn slice_bytes_many(
     let formula_override = match source_sheet.get_cell_formula(cell) {
       Some(formula) => {
         let external_rewritten = rewrite_with_external(
-          formula,
-          node,
-          output,
-          external_workbooks,
-          external_names,
-          external_cells,
-          unresolved,
-          ext_sheets,
+          formula, node, output, external_workbooks, external_names, external_cells,
+          unresolved, ext_sheets,
         )
-        let dynamic_rewritten = rewrite_dynamic_refs(external_rewritten, sheet_name, row_of(cell))
-        let table_rewritten = rewrite_structured_refs(dynamic_rewritten, sheet_name, row_of(cell), tables)
+        let dynamic_rewritten = rewrite_dynamic_refs(
+          external_rewritten,
+          sheet_name,
+          row_of(cell),
+        )
+        let table_rewritten = rewrite_structured_refs(
+          dynamic_rewritten,
+          sheet_name,
+          row_of(cell),
+          tables,
+        )
         Some(table_rewritten)
       }
       None => None
@@ -402,7 +423,14 @@ pub fn slice_bytes_many(
     match source_sheet.get_cell_formula(cell) {
       Some(formula) => {
         let refs = extract_refs(formula, sheet_name)
-        for r in resolve_formula_cells(source, tables, sheet_name, formula, row_of(cell)) {
+        for
+          r in resolve_formula_cells(
+            source,
+            tables,
+            sheet_name,
+            formula,
+            row_of(cell),
+          ) {
           let ref_sheet = match r.sheet {
             Some(value) => value
             None => sheet_name
@@ -410,16 +438,20 @@ pub fn slice_bytes_many(
           if !array_contains(sheets, ref_sheet) {
             let lo_row = if r.row < r.end_row { r.row } else { r.end_row }
             let lo_col = if r.col < r.end_col { r.col } else { r.end_col }
-            unresolved.push("missing-dependency:\{ref_sheet}!\{@xlsx.coordinates_to_cell_name(lo_col, lo_row)}")
+            unresolved.push(
+              "missing-dependency:\{ref_sheet}!\{@xlsx.coordinates_to_cell_name(lo_col, lo_row)}",
+            )
           }
         }
-        if refs.dynamic && dynamic_refs(formula, sheet_name, row_of(cell), source).length() == 0 {
+        if refs.dynamic &&
+          dynamic_refs(formula, sheet_name, row_of(cell), source).length() == 0 {
           unresolved.push("dynamic:\{node}")
         }
         match external_link(formula) {
-          Some(workbook) => if !external_workbooks.contains(workbook) {
-            unresolved.push("external:\{workbook}:\{node}")
-          }
+          Some(workbook) =>
+            if !external_workbooks.contains(workbook) {
+              unresolved.push("external:\{workbook}:\{node}")
+            }
           None => ()
         }
         let external_defs = external_refs(formula)
@@ -442,7 +474,9 @@ pub fn slice_bytes_many(
             used_names.push(name)
           }
         }
-        if formula.contains("[") && external_link(formula) == None && table_refs(formula, row_of(cell), tables).length() == 0 {
+        if formula.contains("[") &&
+          external_link(formula) == None &&
+          table_refs(formula, row_of(cell), tables).length() == 0 {
           unresolved.push("table-unresolved:\{node}")
         }
       }
@@ -474,24 +508,40 @@ pub fn slice_bytes_many(
       (Some(a), Some(b)) => a == b
       _ => false
     }
-    let calculated = try {
-      Some(sliced.calc_cell_value(target_sheet, target_cell, raw=true))
-    } catch {
+    let calculated = Some(
+      sliced.calc_cell_value(target_sheet, target_cell, raw=true),
+    ) catch {
       _ => None
     }
     let calc_verified = match (before, calculated) {
       (Some(a), Some(b)) => a == b
       _ => false
     }
-    target_results.push({ target, before, after, calculated, verified, calc_verified })
+    target_results.push({
+      target,
+      before,
+      after,
+      calculated,
+      verified,
+      calc_verified,
+    })
   }
   let primary = if target_results.length() > 0 {
     target_results[0]
   } else {
-    { target: "", before: None, after: None, calculated: None, verified: false, calc_verified: false }
+    {
+      target: "",
+      before: None,
+      after: None,
+      calculated: None,
+      verified: false,
+      calc_verified: false,
+    }
   }
-  let all_verified = target_results.length() > 0 && target_results.all(fn(item) { item.verified })
-  let all_calc_verified = target_results.length() > 0 && target_results.all(fn(item) { item.calc_verified })
+  let all_verified = target_results.length() > 0 &&
+    target_results.all(fn(item) { item.verified })
+  let all_calc_verified = target_results.length() > 0 &&
+    target_results.all(fn(item) { item.calc_verified })
   {
     data: slice_data,
     manifest: {
@@ -524,26 +574,60 @@ pub fn slice_bytes_many(
 
 ///|
 pub fn slice_manifest_json(manifest : SliceManifest) -> String {
-  let cells = "[" + manifest.included_cells.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
-  let sheets = "[" + manifest.included_sheets.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
-  let unresolved = "[" + manifest.unresolved.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
-  let external_workbooks = "[" + manifest.external_workbooks.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
-  let external_cells = "[" + manifest.external_cells.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") + "]"
-  let targets = "[" + manifest.targets.map(fn(item) {
-    let before = match item.before {
-      Some(value) => "\"" + json_escape(value) + "\""
-      None => "null"
-    }
-    let after = match item.after {
-      Some(value) => "\"" + json_escape(value) + "\""
-      None => "null"
-    }
-    let calculated = match item.calculated {
-      Some(value) => "\"" + json_escape(value) + "\""
-      None => "null"
-    }
-    "{\"target\":\"" + json_escape(item.target) + "\",\"before\":" + before + ",\"after\":" + after + ",\"calculated\":" + calculated + ",\"verified\":" + item.verified.to_string() + ",\"calc_verified\":" + item.calc_verified.to_string() + "}"
-  }).join(",") + "]"
+  let cells = "[" +
+    manifest.included_cells
+    .map(fn(x) { "\"" + json_escape(x) + "\"" })
+    .join(",") +
+    "]"
+  let sheets = "[" +
+    manifest.included_sheets
+    .map(fn(x) { "\"" + json_escape(x) + "\"" })
+    .join(",") +
+    "]"
+  let unresolved = "[" +
+    manifest.unresolved.map(fn(x) { "\"" + json_escape(x) + "\"" }).join(",") +
+    "]"
+  let external_workbooks = "[" +
+    manifest.external_workbooks
+    .map(fn(x) { "\"" + json_escape(x) + "\"" })
+    .join(",") +
+    "]"
+  let external_cells = "[" +
+    manifest.external_cells
+    .map(fn(x) { "\"" + json_escape(x) + "\"" })
+    .join(",") +
+    "]"
+  let targets = "[" +
+    manifest.targets
+    .map(fn(item) {
+      let before = match item.before {
+        Some(value) => "\"" + json_escape(value) + "\""
+        None => "null"
+      }
+      let after = match item.after {
+        Some(value) => "\"" + json_escape(value) + "\""
+        None => "null"
+      }
+      let calculated = match item.calculated {
+        Some(value) => "\"" + json_escape(value) + "\""
+        None => "null"
+      }
+      "{\"target\":\"" +
+      json_escape(item.target) +
+      "\",\"before\":" +
+      before +
+      ",\"after\":" +
+      after +
+      ",\"calculated\":" +
+      calculated +
+      ",\"verified\":" +
+      item.verified.to_string() +
+      ",\"calc_verified\":" +
+      item.calc_verified.to_string() +
+      "}"
+    })
+    .join(",") +
+    "]"
   let before = match manifest.target_value_before {
     Some(value) => "\"" + json_escape(value) + "\""
     None => "null"
@@ -552,7 +636,19 @@ pub fn slice_manifest_json(manifest : SliceManifest) -> String {
     Some(value) => "\"" + json_escape(value) + "\""
     None => "null"
   }
-  "{\"tool\":\"sheetsentry\",\"kind\":\"calculation-slice\",\"version\":\"\{tool_version()}\",\"source_file\":\"\{json_escape(manifest.source_file)}\",\"target\":\"\{json_escape(manifest.target)}\",\"targets\":\{targets},\"source_sha256\":\"\{manifest.source_sha256}\",\"slice_sha256\":\"\{manifest.slice_sha256}\",\"included_cells\":\{cells},\"included_sheets\":\{sheets},\"unresolved\":\{unresolved},\"external_workbooks\":\{external_workbooks},\"external_cells\":\{external_cells},\"total_used_cells\":\{manifest.total_used_cells},\"included_used_cells\":\{manifest.included_used_cells},\"excluded_used_cells\":\{manifest.excluded_used_cells},\"reduction_ratio\":\"\{manifest.reduction_ratio}\",\"minimality_verified\":\{manifest.minimality_verified},\"unreachable_included\":[" + manifest.unreachable_included.map(fn(x) { "\\\"" + json_escape(x) + "\\\"" }).join(",") + "],\"missing_required\":[" + manifest.missing_required.map(fn(x) { "\\\"" + json_escape(x) + "\\\"" }).join(",") + "],\"excluded_reachable\":[" + manifest.excluded_reachable.map(fn(x) { "\\\"" + json_escape(x) + "\\\"" }).join(",") + "],\"target_value_before\":\{before},\"target_value_after\":\{after},\"verified\":\{manifest.verified},\"calc_verified\":\{manifest.calc_verified},\"complete\":\{manifest.complete}}"
+  "{\"tool\":\"sheetsentry\",\"kind\":\"calculation-slice\",\"version\":\"\{tool_version()}\",\"source_file\":\"\{json_escape(manifest.source_file)}\",\"target\":\"\{json_escape(manifest.target)}\",\"targets\":\{targets},\"source_sha256\":\"\{manifest.source_sha256}\",\"slice_sha256\":\"\{manifest.slice_sha256}\",\"included_cells\":\{cells},\"included_sheets\":\{sheets},\"unresolved\":\{unresolved},\"external_workbooks\":\{external_workbooks},\"external_cells\":\{external_cells},\"total_used_cells\":\{manifest.total_used_cells},\"included_used_cells\":\{manifest.included_used_cells},\"excluded_used_cells\":\{manifest.excluded_used_cells},\"reduction_ratio\":\"\{manifest.reduction_ratio}\",\"minimality_verified\":\{manifest.minimality_verified},\"unreachable_included\":[" +
+  manifest.unreachable_included
+  .map(fn(x) { "\\\"" + json_escape(x) + "\\\"" })
+  .join(",") +
+  "],\"missing_required\":[" +
+  manifest.missing_required
+  .map(fn(x) { "\\\"" + json_escape(x) + "\\\"" })
+  .join(",") +
+  "],\"excluded_reachable\":[" +
+  manifest.excluded_reachable
+  .map(fn(x) { "\\\"" + json_escape(x) + "\\\"" })
+  .join(",") +
+  "],\"target_value_before\":\{before},\"target_value_after\":\{after},\"verified\":\{manifest.verified},\"calc_verified\":\{manifest.calc_verified},\"complete\":\{manifest.complete}}"
 }
 
 ///|
@@ -562,10 +658,11 @@ pub(all) struct SliceVerification {
   after : String?
   verified : Bool
   hash_verified : Bool
-  targets_total : Int
-  targets_verified : Int
-  targets_calc_verified : Int
+  targets_total : Int32
+  targets_verified : Int32
+  targets_calc_verified : Int32
   calc_verified : Bool
+  complete : Bool
   source_hash_verified : Bool
   minimality_verified : Bool
   error : String?
@@ -620,6 +717,7 @@ pub fn verify_slice_bytes(
   let value = @json.parse(manifest_text)
   let mut expected_hash = ""
   let mut minimality_verified = false
+  let mut complete = false
   let mut targets : Array[(String, String?)] = []
   match value {
     Object(map) => {
@@ -629,6 +727,10 @@ pub fn verify_slice_bytes(
       }
       match map.get("minimality_verified") {
         Some(True) => minimality_verified = true
+        _ => ()
+      }
+      match map.get("complete") {
+        Some(True) => complete = true
         _ => ()
       }
       targets = manifest_targets(map)
@@ -659,9 +761,7 @@ pub fn verify_slice_bytes(
       if verified {
         targets_verified = targets_verified + 1
       }
-      let calculated = try {
-        Some(workbook.calc_cell_value(sheet, cell, raw=true))
-      } catch {
+      let calculated = Some(workbook.calc_cell_value(sheet, cell, raw=true)) catch {
         _ => None
       }
       let calc_ok = match (before, calculated) {
@@ -681,7 +781,8 @@ pub fn verify_slice_bytes(
     _ => error = Some("failed to read slice workbook")
   }
   let verified = targets.length() > 0 && targets_verified == targets.length()
-  let calc_verified = targets.length() > 0 && targets_calc_verified == targets.length()
+  let calc_verified = targets.length() > 0 &&
+    targets_calc_verified == targets.length()
   {
     target: primary_target,
     before: primary_before,
@@ -692,6 +793,7 @@ pub fn verify_slice_bytes(
     targets_verified,
     targets_calc_verified,
     calc_verified,
+    complete,
     source_hash_verified: false,
     minimality_verified,
     error,
@@ -716,7 +818,8 @@ pub fn verify_slice_with_source(
     _ => ()
   }
   let actual_source = hex_bytes(@crypto.sha256(source_bytes))
-  let source_hash_verified = expected_source != "" && expected_source == actual_source
+  let source_hash_verified = expected_source != "" &&
+    expected_source == actual_source
   {
     target: base.target,
     before: base.before,
@@ -727,6 +830,7 @@ pub fn verify_slice_with_source(
     targets_verified: base.targets_verified,
     targets_calc_verified: base.targets_calc_verified,
     calc_verified: base.calc_verified,
+    complete: base.complete,
     source_hash_verified,
     minimality_verified: base.minimality_verified,
     error: base.error,
@@ -749,13 +853,20 @@ pub fn slice_report_html(manifest : SliceManifest) -> String {
       Some(value) => html_escape(value)
       None => "<failed>"
     }
-    target_rows = target_rows + "<tr><td>\{html_escape(item.target)}</td><td>\{before}</td><td>\{after}</td><td>\{calculated}</td><td>\{item.verified}</td><td>\{item.calc_verified}</td></tr>"
+    target_rows = target_rows +
+      "<tr><td>\{html_escape(item.target)}</td><td>\{before}</td><td>\{after}</td><td>\{calculated}</td><td>\{item.verified}</td><td>\{item.calc_verified}</td></tr>"
   }
-  let sheets = manifest.included_sheets.map(fn(x) { "<li>" + html_escape(x) + "</li>" }).join("")
+  let sheets = manifest.included_sheets
+    .map(fn(x) { "<li>" + html_escape(x) + "</li>" })
+    .join("")
   let unresolved = if manifest.unresolved.length() == 0 {
     "<p class=\"ok\">No unresolved dependencies.</p>"
   } else {
-    "<ul>" + manifest.unresolved.map(fn(x) { "<li>" + html_escape(x) + "</li>" }).join("") + "</ul>"
+    "<ul>" +
+    manifest.unresolved
+    .map(fn(x) { "<li>" + html_escape(x) + "</li>" })
+    .join("") +
+    "</ul>"
   }
   "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>SheetSentry slice certificate</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:32px;color:#1f2937;background:#f8fafc}h1{margin:0 0 6px}.meta{color:#64748b;margin-bottom:24px}.cards{display:flex;gap:12px;margin-bottom:24px}.card{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;min-width:120px}.card b{display:block;font-size:24px}table{width:100%;border-collapse:collapse;background:white;border:1px solid #e2e8f0;margin-bottom:20px}th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:13px}th{background:#f1f5f9}.ok{color:#15803d;font-weight:600}.bad{color:#dc2626;font-weight:600}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all}</style></head><body><h1>SheetSentry slice certificate</h1><div class=\"meta\">\{html_escape(manifest.source_file)} · target count \{manifest.targets.length()}</div><div class=\"cards\"><div class=\"card\"><b>\{manifest.included_cells.length()}</b>cells</div><div class=\"card\"><b>\{manifest.included_sheets.length()}</b>sheets</div><div class=\"card\"><b>\{manifest.external_workbooks.length()}</b>external</div><div class=\"card\"><b class=\"\{if manifest.verified { "ok" } else { "bad" }}\">\{manifest.verified}</b>verified</div><div class=\"card\"><b>\{manifest.complete}</b>complete</div></div><h2>Targets</h2><table><thead><tr><th>Target</th><th>Before</th><th>Cached after</th><th>Recalculated</th><th>Value verified</th><th>Calc verified</th></tr></thead><tbody>\{target_rows}</tbody></table><h2>Minimality</h2><table><tr><th>Total used cells</th><td>\{manifest.total_used_cells}</td></tr><tr><th>Included used cells</th><td>\{manifest.included_used_cells}</td></tr><tr><th>Excluded used cells</th><td>\{manifest.excluded_used_cells}</td></tr><tr><th>Minimality verified</th><td>\{manifest.minimality_verified}</td></tr><tr><th>Unreachable included</th><td>\{manifest.unreachable_included.length()}</td></tr><tr><th>Missing required</th><td>\{manifest.missing_required.length()}</td></tr><tr><th>Excluded reachable</th><td>\{manifest.excluded_reachable.length()}</td></tr></table><h2>Integrity</h2><table><tr><th>Source SHA-256</th><td><code>\{manifest.source_sha256}</code></td></tr><tr><th>Slice SHA-256</th><td><code>\{manifest.slice_sha256}</code></td></tr></table><h2>Included sheets</h2><ul>\{sheets}</ul><h2>Unresolved dependencies</h2>\{unresolved}</body></html>"
 }
