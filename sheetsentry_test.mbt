@@ -36,6 +36,35 @@ test "audit bad model finds core rules" {
   assert_true(has_rule(report, "SS008"))
   assert_true(has_rule(report, "SS009"))
   assert_true(has_rule(report, "SS010"))
+  assert_eq(report.findings.length(), 19)
+  let mut high = 0
+  let mut medium = 0
+  let mut low = 0
+  for finding in report.findings {
+    match finding.severity {
+      @sheetsentry.High => high = high + 1
+      @sheetsentry.Medium => medium = medium + 1
+      @sheetsentry.Low => low = low + 1
+    }
+  }
+  assert_eq(high, 4)
+  assert_eq(medium, 10)
+  assert_eq(low, 5)
+}
+
+///|
+test "audit dynamic model reports unresolved references" {
+  let bytes = @fs.read_file_to_bytes("fixtures/dynamic_model.xlsx")
+  let report = @sheetsentry.audit_bytes(bytes, "dynamic_model.xlsx")
+  assert_eq(report.findings.length(), 2)
+  assert_true(has_rule(report, "SS007"))
+  assert_true(has_rule(report, "SS004"))
+  let result = @sheetsentry.slice_bytes(
+    bytes, "dynamic_model.xlsx", "Calc!B1", 20,
+  )
+  assert_false(result.manifest.complete)
+  assert_false(result.manifest.calc_verified)
+  assert_true(result.manifest.unresolved.contains("dynamic:Calc!B1"))
 }
 
 ///|
@@ -124,8 +153,13 @@ test "graph export formats" {
 ///|
 test "rule catalog lists all rules" {
   let catalog = @sheetsentry.rule_catalog()
-  assert_true(catalog.contains("SS001"))
-  assert_true(catalog.contains("SS008"))
+  for
+    rule_id in [
+      "SS001", "SS002", "SS003", "SS004", "SS005", "SS006", "SS007", "SS008", "SS009",
+      "SS010",
+    ] {
+    assert_true(catalog.contains(rule_id))
+  }
 }
 
 ///|
@@ -225,7 +259,13 @@ test "sarif includes all rules" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let report = @sheetsentry.audit_bytes(bytes, "bad_model.xlsx")
   let sarif = @sheetsentry.to_sarif(report)
-  assert_true(sarif.contains("\"SS010\""))
+  for
+    rule_id in [
+      "SS001", "SS002", "SS003", "SS004", "SS005", "SS006", "SS007", "SS008", "SS009",
+      "SS010",
+    ] {
+    assert_true(sarif.contains("\"" + rule_id + "\""))
+  }
   assert_true(sarif.contains("\"version\":\"2.1.0\""))
 }
 
@@ -513,7 +553,7 @@ test "slice certificate html" {
 }
 
 ///|
-test "slice recalculates independently" {
+test "slice recalculates target value from reconstruction" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let result = @sheetsentry.slice_bytes(
     bytes, "bad_model.xlsx", "Summary!B3", 20,
@@ -545,7 +585,7 @@ test "slice minimality metrics" {
 }
 
 ///|
-test "complex reference slices recalculate independently" {
+test "complex reference slices recalculate from reconstruction" {
   let bytes = @fs.read_file_to_bytes("fixtures/bad_model.xlsx")
   let structured = @sheetsentry.slice_bytes(
     bytes, "bad_model.xlsx", "Summary!B10", 20,

@@ -20,7 +20,7 @@ claims in `docs/application.md`.
 | --- | --- |
 | Core implementation in MoonBit | XLSX slicing, formula parsing, dependency tracing, audit rules, reports, and CLI are implemented in `.mbt` files |
 | Reusable library API | 48 public functions/types are exported in `pkg.generated.mbti` |
-| Mooncakes package | [`mhlagent/sheetsentry@0.10.2`](https://mooncakes.io/docs/mhlagent/sheetsentry), target `native` |
+| Mooncakes package | [`mhlagent/sheetsentry@0.10.3`](https://mooncakes.io/docs/mhlagent/sheetsentry), target `native` |
 | Compatibility | Verified with `moon 0.1.20261104` and `moonc v0.10.20+65efd5b93` |
 | Optional non-MoonBit tooling | Python is used only for fixture generation and independent formula cross-checking |
 
@@ -33,7 +33,7 @@ claims in `docs/application.md`.
 | Multi-target slices | `--target`, `--targets`, and `--targets-file` |
 | Formula support | A1, absolute and range references, named ranges, literal `INDIRECT`, constant `OFFSET`, structured references |
 | External workbook import | `--external book.xlsx=path` |
-| Audit rules | Ten deterministic rules, severity filters, baseline suppression, and config files |
+| Audit rules | Ten deterministic rules, including persisted unresolved-dynamic `SS007` coverage, severity filters, baseline suppression, and config files |
 | Reports | Terminal, JSON, SARIF 2.1.0, and self-contained HTML |
 | Dependency graph | Precedent/dependent trace and DOT/Mermaid export |
 | CI behavior | Strict failure exits for findings, invalid input, incomplete slices, hash mismatch, and failed recalculation |
@@ -53,7 +53,7 @@ python3 scripts/check_examples.py examples
 
 Expected and verified results:
 
-- 78/78 MoonBit tests pass.
+- 79/79 MoonBit tests pass.
 - `Summary!B3` produces 12 cells across 2 sheets, target value `539`, with `verified=true`, `calc_verified=true`, `complete=true`, and `minimality_verified=true`.
 - `Summary!B3 + Summary!B10` produces 14 cells and retains 13/65 used cells; both targets verify and recalculate.
 - `Summary!B14` imports `external_book.xlsx`, produces target value `42`, and passes strict verification.
@@ -61,7 +61,7 @@ Expected and verified results:
 - The 30-case formula fixture matches independent `formulas==1.3.4` results 30/30.
 - Committed example manifests and certificates are validated by `scripts/check_examples.py`.
 - [GitHub Actions](https://github.com/mhlagent/sheetsentry/actions) passes all strict checks and cross-implementation tests.
-- Mooncakes reports `build_status=success` for `0.10.2`.
+- Mooncakes reports `build_status=success` for `0.10.3`.
 
 ## Documented boundaries
 
@@ -84,7 +84,7 @@ moon build --target native --deny-warn
 moon fmt --check
 bash scripts/cli_smoke.sh
 
-python3 -m pip install formulas==1.3.4 openpyxl
+python3 -m pip install formulas==1.3.4 openpyxl xlsxwriter
 OUTPUT_DIR=/tmp/sheetsentry-examples RUN_CROSSCHECK=1 bash scripts/build_examples.sh
 python3 scripts/check_examples.py /tmp/sheetsentry-examples
 python3 scripts/check_examples.py examples

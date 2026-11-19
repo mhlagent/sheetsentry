@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.3
+
+- Add a persistent unresolved-dynamic fixture covering `SS007`.
+- Assert exact audit totals and severity counts on the bad-model fixture.
+- Require the rule catalog and SARIF output to contain all ten rules.
+- Rename internal recalculation tests to distinguish them from independent cross-checks.
+- Document `xlsxwriter` as a fixture-generation dependency.
+- Expand tests to 79.
+
 ## 0.10.2
 
 - Correct the hackathon season in public documentation.

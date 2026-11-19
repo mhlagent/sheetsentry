@@ -142,6 +142,20 @@ def build_external(path: Path):
     print(path)
 
 
+def build_dynamic(path: Path):
+    """Create a workbook whose INDIRECT target cannot be resolved statically."""
+    wb = xlsxwriter.Workbook(path)
+    inputs = wb.add_worksheet("Inputs")
+    inputs.write("A1", "Selector")
+    inputs.write("A2", "B2")
+    inputs.write_number("B2", 10)
+    calc = wb.add_worksheet("Calc")
+    calc.write("A1", "Dynamic target")
+    calc.write_formula("B1", '=INDIRECT("Inputs!"&A2)', None, 10)
+    wb.close()
+    print(path)
+
+
 def build(path: Path, bad: bool):
     wb = xlsxwriter.Workbook(path)
     wb.set_properties({"title": "SheetSentry bad model" if bad else "SheetSentry clean model"})

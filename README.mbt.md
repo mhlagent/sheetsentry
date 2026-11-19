@@ -20,7 +20,7 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.10.2` MVP, implemented in MoonBit. The current release supports:
+`0.10.3` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - calculation-slice extraction to a standalone `.xlsx`
@@ -73,7 +73,7 @@ Only the sheets and cells needed by the target are copied. Unrelated sheets and 
 Add the Mooncakes dependency:
 
 ```bash
-moon add mhlagent/sheetsentry@0.10.2
+moon add mhlagent/sheetsentry@0.10.3
 ```
 
 Import the package in `moon.pkg`:
@@ -257,7 +257,7 @@ Runtime dependencies are resolved from Mooncakes:
 Python packages are optional and are used only for fixture generation and independent formula checks:
 
 ```bash
-python3 -m pip install formulas==1.3.4 openpyxl
+python3 -m pip install formulas==1.3.4 openpyxl xlsxwriter
 ```
 
 ## Architecture
@@ -302,12 +302,12 @@ Tests cover:
 - graph export and rule catalog;
 - precedents and dependents tracing;
 - fail thresholds and CLI error exit codes;
-- 78 tests in total.
+- 79 tests in total.
 
 Fixtures are generated reproducibly with:
 
 ```bash
-python3 -m pip install openpyxl
+python3 -m pip install xlsxwriter
 python3 scripts/make_fixtures.py
 python3 scripts/make_formula_coverage.py
 ```

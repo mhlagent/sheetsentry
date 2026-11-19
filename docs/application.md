@@ -37,9 +37,9 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 
 ## 预期验收产物
 
-- Mooncakes：`mhlagent/sheetsentry@0.10.2`；
+- Mooncakes：`mhlagent/sheetsentry@0.10.3`；
 - `slice` 与 `verify-slice` CLI，以及可复用的 MoonBit API；
-- 78 个 MoonBit 测试，GitHub Actions 全绿；
+- 79 个 MoonBit 测试，GitHub Actions 全绿；
 - `examples/` 中的示例切片、manifest、HTML/JSON/SARIF 报告；
 - Apache-2.0 许可证、NOTICE、验收证据清单和完整 README；
 - 已验证 `native` 目标，工具链为 `moon 0.1.20261104` / `moonc 0.10.20`。
@@ -52,7 +52,7 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 
 ## 验收指标
 
-- `moon test --target native`：78 个测试全部通过；
+- `moon test --target native`：79 个测试全部通过；
 - `Summary!B3` 切片包含 12 个单元格、2 个 sheet，排除无关的 `Tax` / `Scratch`，`verified=true`、`complete=true`；
 - 多目标切片同时包含 `Summary!B3` 和 `Summary!B10`，共 14 个单元格，`verify-slice` 返回 2/2 目标通过、2/2 独立重算通过且切片哈希一致；
 - 多目标切片保留 13/65 个已使用单元格，排除 52 个，`minimality_verified=true`；
@@ -61,7 +61,7 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 - `INDIRECT` / `OFFSET` 目标可解析并完整切片；
 - 外部工作簿 `Summary!B14` 带映射时 `complete=true`；
 - 深度截断切片明确返回 `complete=false`；
-- `moon publish` 成功发布 `0.10.2`。
+- `moon publish` 成功发布 `0.10.3`。
 
 ## 移植或参考说明
 
