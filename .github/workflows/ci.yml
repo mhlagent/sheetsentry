@@ -51,10 +51,17 @@ jobs:
       - name: Reproducible examples
         env:
           RUN_CROSSCHECK: "1"
+          OUTPUT_DIR: /tmp/sheetsentry-examples
         run: |
           bash scripts/build_examples.sh
-          git diff --exit-code
-          test -z "$(git status --porcelain)"
+          python3 scripts/check_examples.py /tmp/sheetsentry-examples
+          python3 scripts/check_examples.py examples
+          moon run --target native cmd/main -- verify-slice examples/slice.xlsx \
+            --manifest examples/slice_manifest.json --source fixtures/bad_model.xlsx --strict
+          moon run --target native cmd/main -- verify-slice examples/multi_slice.xlsx \
+            --manifest examples/multi_slice_manifest.json --source fixtures/bad_model.xlsx --strict
+          moon run --target native cmd/main -- verify-slice examples/external_slice.xlsx \
+            --manifest examples/external_slice_manifest.json --source fixtures/bad_model.xlsx --strict
 
       - name: Cross-check complex slice
         run: |

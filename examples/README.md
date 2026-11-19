@@ -4,6 +4,7 @@ These files are generated from the repository fixtures with MoonBit 0.10.20:
 
 ```bash
 bash scripts/build_examples.sh
+python3 scripts/check_examples.py
 ```
 
 | File | Contents |
