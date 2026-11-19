@@ -5,3 +5,5 @@ target
 .mooncakes/
 .moonagent/
 *.generated.mbti
+__pycache__/
+*.pyc

@@ -19,6 +19,19 @@ jobs:
       - name: Version
         run: moon version --all
 
+      - name: Repository policy
+        run: |
+          test -f LICENSE
+          test -f NOTICE
+          test -f docs/acceptance.md
+          test -L README.md
+          test -f README.md
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' moon.mod)"
+          test -n "$version"
+          grep -q "\"$version\"" audit.mbt
+          grep -q "mhlagent/sheetsentry@$version" README.mbt.md
+          grep -q "mhlagent/sheetsentry@$version" docs/application.md
+
       - name: Update registry
         run: moon update
 

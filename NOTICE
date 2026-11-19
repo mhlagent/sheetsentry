@@ -1,0 +1,16 @@
+SheetSentry
+Copyright 2026 Mo Huailong (莫淮隆)
+
+This product is licensed under the Apache License, Version 2.0.
+
+The project depends on the following packages distributed under Apache-2.0
+through Mooncakes. Their source code is resolved by the MoonBit package
+manager and is not vendored in this repository:
+
+- moonbitlang/mbtexcel 0.3.0
+- moonbitlang/x 0.5.5
+- moonbit-community/flate 0.9.0
+- moonbitlang/async 0.22.4 (transitive dependency)
+
+Optional Python tools used only for fixture generation and independent
+cross-checking are installed by CI and are not runtime dependencies.

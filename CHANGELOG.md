@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.2
+
+- Correct the hackathon season in public documentation.
+- Add explicit library usage and verified toolchain compatibility.
+- Add copyright ownership and third-party NOTICE information.
+- Clarify dependency-minimal slicing and fresh recalculation wording.
+- Add a requirement-to-evidence acceptance checklist.
+- Document optional Python dependencies for fixture generation and cross-checking.
+
 ## 0.10.1
 
 - Update formatting and type declarations for MoonBit 0.10.20.

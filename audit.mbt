@@ -7,7 +7,7 @@ pub(all) enum Severity {
 
 ///|
 pub fn tool_version() -> String {
-  "0.10.1"
+  "0.10.2"
 }
 
 ///|

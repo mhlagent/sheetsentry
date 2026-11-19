@@ -11,7 +11,7 @@
 
 ## 项目简介
 
-SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标单元格，从大型工作簿中提取一个最小、可独立打开、可复现该计算结果的工作簿。
+SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标单元格，从大型工作簿中提取一个只包含必要依赖、可独立打开、可复现该计算结果的工作簿。
 
 它沿公式依赖收集必要前驱，只复制相关 sheet 和 cell，生成独立 `.xlsx` 与 SHA-256 manifest，并通过 `verify-slice` 重新打开切片验证目标值。项目适用于审计、模型交接、监管报送、调试和敏感数据最小化共享。
 
@@ -37,11 +37,12 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 
 ## 预期验收产物
 
-- Mooncakes：`mhlagent/sheetsentry@0.10.1`；
+- Mooncakes：`mhlagent/sheetsentry@0.10.2`；
 - `slice` 与 `verify-slice` CLI，以及可复用的 MoonBit API；
 - 78 个 MoonBit 测试，GitHub Actions 全绿；
 - `examples/` 中的示例切片、manifest、HTML/JSON/SARIF 报告；
-- Apache-2.0 许可证和完整 README。
+- Apache-2.0 许可证、NOTICE、验收证据清单和完整 README；
+- 已验证 `native` 目标，工具链为 `moon 0.1.20261104` / `moonc 0.10.20`。
 
 ## 与 MoonCell 的边界
 
@@ -60,7 +61,7 @@ SheetSentry 使用 MoonBit 解决一个明确问题：给定 Excel 中的目标�
 - `INDIRECT` / `OFFSET` 目标可解析并完整切片；
 - 外部工作簿 `Summary!B14` 带映射时 `complete=true`；
 - 深度截断切片明确返回 `complete=false`；
-- `moon publish` 成功发布 `0.10.1`。
+- `moon publish` 成功发布 `0.10.2`。
 
 ## 移植或参考说明
 

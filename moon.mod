@@ -1,6 +1,6 @@
 name = "mhlagent/sheetsentry"
 
-version = "0.10.1"
+version = "0.10.2"
 
 readme = "README.mbt.md"
 

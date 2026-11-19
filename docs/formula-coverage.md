@@ -55,6 +55,8 @@ A six-target complex slice contains 20 cells across 3 sheets. `formulas` indepen
 ## Reproduce
 
 ```bash
+python3 -m pip install formulas==1.3.4 openpyxl
+
 moon run --target native cmd/main -- \
   slice fixtures/formula_coverage.xlsx \
   --targets "Coverage!B2,Coverage!B3,Coverage!B4,Coverage!B5,Coverage!B6" \

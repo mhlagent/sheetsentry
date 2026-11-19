@@ -2,7 +2,7 @@
 
 **Calculation slicing and model audit for Excel files, written in MoonBit.**
 
-SheetSentry extracts a reproducible calculation slice from any target cell in an `.xlsx` workbook: it follows the target's precedents, writes a new standalone workbook containing only the required sheets and cells, and records a SHA-256 manifest plus target-value verification. An audit layer adds formula-risk rules, baselines, filters, and reports.
+SheetSentry extracts a reproducible calculation slice from a target cell in a supported `.xlsx` formula model: it follows the target's precedents, writes a new standalone workbook containing only the required sheets and cells, and records a SHA-256 manifest plus target-value verification. An audit layer adds formula-risk rules, baselines, filters, and reports.
 
 It is designed for finance, audit, FP&A, and data teams that want spreadsheet checks to run like code checks: deterministic, scriptable, and CI-friendly.
 
@@ -20,13 +20,13 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Status
 
-`0.10.1` MVP, implemented in MoonBit. The current release supports:
+`0.10.2` MVP, implemented in MoonBit. The current release supports:
 
 - XLSX reading and writing through [`moonbitlang/mbtexcel`](https://mooncakes.io/docs/moonbitlang/mbtexcel)
 - calculation-slice extraction to a standalone `.xlsx`
 - multi-target slices and an HTML slice certificate
 - slice/source SHA-256, minimality detail checks, and per-target verification
-- independent recalculation of every target with a `calc_verified` result
+- fresh recalculation of every target through `mbtexcel` with a `calc_verified` result
 - 30-function coverage fixture plus cross-implementation checks with `formulas==1.3.4`
 - `--targets-file` batch input and `--strict` CI gates
 - named ranges, literal `INDIRECT`, constant `OFFSET`, and table structured references
@@ -44,7 +44,7 @@ Excel's built-in *Trace Precedents* / *Trace Dependents* are useful, but they ar
 
 ## Calculation slice
 
-A slice answers: **“What is the smallest self-contained workbook that reproduces this output?”**
+A slice answers: **“What is the minimal static dependency closure that reproduces this output?”**
 
 ```bash
 moon run --target native cmd/main -- slice model.xlsx --target "Summary!B3" --out slice.xlsx --manifest slice.json
@@ -67,6 +67,46 @@ The manifest records:
 - unresolved dynamic references, named ranges, external links, or missing dependencies.
 
 Only the sheets and cells needed by the target are copied. Unrelated sheets and data are not included.
+
+## Library usage
+
+Add the Mooncakes dependency:
+
+```bash
+moon add mhlagent/sheetsentry@0.10.2
+```
+
+Import the package in `moon.pkg`:
+
+```text
+import {
+  "mhlagent/sheetsentry" @sheetsentry,
+}
+```
+
+The core API accepts XLSX bytes and returns a reconstructed workbook plus its manifest:
+
+```moonbit nocheck
+///|
+let targets = ["Summary!B3", "Summary!B10"]
+
+///|
+let result = @sheetsentry.slice_bytes_many(
+  source_bytes,
+  "model.xlsx",
+  targets,
+  20,
+  Map([]),
+)
+
+///|
+let manifest = result.manifest
+
+///|
+let slice_bytes = result.data
+```
+
+`source_bytes` can come from a file, an HTTP body, or another byte source. The library itself does not require network access.
 
 ## Quick start
 
@@ -196,7 +236,29 @@ A fingerprint is `rule|sheet|cell`, so moving a finding to another cell makes it
     sarif_file: results.sarif
 ```
 
-The repository's own [`CI`](.github/workflows/ci.yml) runs `moon update`, `moon check`, `moon test`, and `moon build` on every push.
+The repository's own [`CI`](.github/workflows/ci.yml) runs strict checks, tests, CLI failure-mode tests, example reproducibility checks, and independent formula cross-checks on every push.
+
+## Compatibility
+
+Verified on 2026-11-19 with:
+
+- `moon 0.1.20261104`
+- `moonc v0.10.20+65efd5b93`
+- `moonrun 0.1.20261104`
+
+Supported target: `native`.
+
+Runtime dependencies are resolved from Mooncakes:
+
+- `moonbitlang/mbtexcel@0.3.0`
+- `moonbitlang/x@0.5.5`
+- `moonbit-community/flate@0.9.0`
+
+Python packages are optional and are used only for fixture generation and independent formula checks:
+
+```bash
+python3 -m pip install formulas==1.3.4 openpyxl
+```
 
 ## Architecture
 
@@ -245,10 +307,14 @@ Tests cover:
 Fixtures are generated reproducibly with:
 
 ```bash
-PYTHONPATH=../tools/pylib python3 scripts/make_fixtures.py
+python3 -m pip install openpyxl
+python3 scripts/make_fixtures.py
+python3 scripts/make_formula_coverage.py
 ```
 
-The Python script is a test-data generator only; the analyzer itself is MoonBit.
+The Python scripts are test-data generators only; the analyzer and slicer are implemented in MoonBit.
+
+Detailed requirement-to-evidence mapping: [`docs/acceptance.md`](docs/acceptance.md).
 
 ## Limitations
 
@@ -269,8 +335,8 @@ The Python script is a test-data generator only; the analyzer itself is MoonBit.
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Hackathon
 
-Built for the 2026 MoonBit Hackathon, October season.
+Built for the 2026 MoonBit Hackathon, November season.
